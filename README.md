@@ -1,6 +1,3 @@
-This repository contains shared tools and scripts that can be useful for GitGuardian's customers.
+# V1 -> V2 migration
 
-The tools available will be detailed in this readme file.
-
-- API Migration Script : This script is meant for migrating the incident remediation progress from one workspace to another regardless if SaaS or Onprem.
-	- It can be found under the API_migration branch in this repository. 
+See the [Notion page](https://www.notion.so/gitguardian/V1-V2-migration-user-guide-DRAFT-858dff4b71d7469baa45b92033003851?pvs=4).
