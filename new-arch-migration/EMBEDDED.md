@@ -66,7 +66,7 @@ OK
 
 Each worker should return: `- empty -`
 
-3. Backup the GitGuardian PostgreSQL database
+3. Backup the GitGuardian PostgreSQL database.
 
 ```bash
 ./backup-db.sh --v1 --namespace default \
@@ -131,11 +131,11 @@ DB successfully restored from <pg-dump-gitguardian-v1-YYYYmmDD_HHMMSS.gz>
 
 ## Rollback Procedure for embedded databases
 
-If you encounter issues after migration, you can rollback to the legacy app.
+If you encounter issues after migration, you can rollback to the legacy architecture.
 
 ⚠️ Coordinate with the GitGuardian team to update your license information before proceeding with the rollback.
 
-1. Optional: Create a new backup of the PostgreSQL database (or use your legacy backup).
+1. Optional: Create a new backup of the PostgreSQL database (or use your legacy database backup).
 
 ```bash
 ./scale.sh \

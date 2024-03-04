@@ -32,8 +32,8 @@ The new version must use the same GitGuardian version as the legacy version. Ple
 
 ℹ️ For airgap installation, first, download the airgap bundle file from your download portal.
 
-1. To begin with, please create a backup of both GitGuardian's external PostgreSQL databases.
-2. You can now upgrade GitGuardian using the following command line:
+1. To begin with, please create a backup of your GitGuardian's external PostgreSQL database.
+2. You can now upgrade GitGuardian to the new architecture using the following command line:
     
 ```bash
 # For Online installation
@@ -66,7 +66,7 @@ Et voilà! You should access to your GitGuardian dashboard.
 
 ### Rollback procedure
 
-If you encounter any blocking issues after the migration, you can rollback to the legacy app.
+If you encounter any blocking issues after the migration, you can rollback to the legacy architecture.
 
 ⚠️ You need first to synchronize with the GitGuardian team before running the following steps in order to update your license information.
 
@@ -83,7 +83,7 @@ Once the GitGuardian team has updated your license, you can rollback GitGuardian
 --deploy
 ```
 
-ℹ️ To avoid any conflicts during upgrade, it will first uninstall all existing helm releases in `<gitguardian_namespace>`.
+ℹ️ To avoid any conflicts during upgrade, it will first uninstall all existing releases based on the new architecture in `<gitguardian_namespace>`.
 
 *Expected result:*
 
