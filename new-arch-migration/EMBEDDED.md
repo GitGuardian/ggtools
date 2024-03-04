@@ -16,6 +16,8 @@ The new version must use the same GitGuardian version as the legacy version. Ple
 
 ⚠️ Please note, this migration guide is specifically designed for customers who have installed GitGuardian on an [embedded Kubernetes cluster with an embedded database](https://docs.gitguardian.com/self-hosting/installation/installation-embedded-cluster-legacy). If your GitGuardian instance is running on an existing cluster, visit this [page](./README.md).
 
+## Migration Procedure
+
 ⚠️ This upgrade requires downtime, the duration of which depends on your environment and the size of the GitGuardian PostgreSQL database, as it involves backing up and restoring the database.
 
 1. Scale down the GitGuardian app deployment to make the application inaccessible, allowing workers to process remaining tasks.
@@ -127,7 +129,7 @@ DB successfully restored from <pg-dump-gitguardian-v1-YYYYmmDD_HHMMSS.gz>
 
 - Your GitGuardian dashboard is now accessible.
 
-# Rollback Procedure for embedded databases
+## Rollback Procedure for embedded databases
 
 If you encounter issues after migration, you can rollback to the legacy app.
 
