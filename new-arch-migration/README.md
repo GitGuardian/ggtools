@@ -5,8 +5,8 @@ To initiate the migration process or if you have any questions regarding the new
 Explore the [New Architecture documentation](https://docs.gitguardian.com/self-hosting/new-architecture) for a deep dive into its advantages, including enhanced performance, security, and scalability features. Our guide provides a thorough understanding of the architectural upgrades and the additional benefits of switching to the new version of GitGuardian.
 
 Migration can be approached in two ways to best suit your operational needs:
-- [In-place migration with external databases](./EXTERNAL#in-place-migration-with-external-databases) (approx. 1 hour of downtime)
-- [Blue/green migration with external databases](./EXTERNAL#bluegreen-migration-with-external-databases) (no downtime)
+- [In-place migration with external databases](#in-place-migration-with-external-databases) (approx. 1 hour of downtime)
+- [Blue/green migration with external databases](#bluegreen-migration-with-external-databases) (no downtime)
 
 Review and discuss both migration methods and reach out to our [support team](mailto:support@gitguardian.com?subject=Migration+New+Architecture) for tailored guidance and support throughout the transition process.
 
