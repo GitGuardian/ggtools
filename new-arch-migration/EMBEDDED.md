@@ -22,112 +22,112 @@ The new version must use the same GitGuardian version as the legacy version. Ple
 
 1. Scale down the GitGuardian app deployment to make the application inaccessible, allowing workers to process remaining tasks.
 
-```bash
-./scale.sh --v1 \
-    --namespace default \
-    --component app \
-    --replicas 0
-```
+    ```bash
+    ./scale.sh --v1 \
+        --namespace default \
+        --component app \
+        --replicas 0
+    ```
 
-**Expected result:**
+    **Expected result:**
 
-```bash
-=> Retrieve GitGuardian deployments
-OK
+    ```bash
+    => Retrieve GitGuardian deployments
+    OK
 
-=> Scale GitGuardian app component to 0 replicas
-OK
-```
+    => Scale GitGuardian app component to 0 replicas
+    OK
+    ```
 
 2. Verify all asynchronous tasks are completed by running the following command until the expected result is obtained:
 
-```bash
-./inspect-workers.sh --v1 --namespace default
-```
+    ```bash
+    ./inspect-workers.sh --v1 --namespace default
+    ```
 
-**Expected result:**
+    **Expected result:**
 
-```bash
-=> Retrieve GitGuardian worker deployment
-OK
+    ```bash
+    => Retrieve GitGuardian worker deployment
+    OK
 
-=> Inspect workers...
-->  workers@gitguardian-worker-594874fc65-t84t6: OK
-    - empty -
-->  scanner@gitguardian-scanner-77754cc999-sg2nl: OK
-    - empty -
-->  long_tasks@gitguardian-long-tasks-c5d7cf4cc-l27sf: OK
-    - empty -
-->  scanner-ods@gitguardian-scanner-ods-5b9799d98f-kdn4k: OK
-    - empty -
+    => Inspect workers...
+    ->  workers@gitguardian-worker-594874fc65-t84t6: OK
+        - empty -
+    ->  scanner@gitguardian-scanner-77754cc999-sg2nl: OK
+        - empty -
+    ->  long_tasks@gitguardian-long-tasks-c5d7cf4cc-l27sf: OK
+        - empty -
+    ->  scanner-ods@gitguardian-scanner-ods-5b9799d98f-kdn4k: OK
+        - empty -
 
-4 nodes online.
-```
+    4 nodes online.
+    ```
 
-Each worker should return: `- empty -`
+    Each worker should return: `- empty -`
 
 3. Backup the GitGuardian PostgreSQL database.
 
-```bash
-./backup-db.sh --v1 --namespace default \
-    -o pg-dump-gitguardian-v1-$(date +'%Y%m%d_%H%M%S').gz
-```
+    ```bash
+    ./backup-db.sh --v1 --namespace default \
+        -o pg-dump-gitguardian-v1-$(date +'%Y%m%d_%H%M%S').gz
+    ```
 
-**Expected result:**
+    **Expected result:**
 
-```bash
-=> Retrieve PostgreSQL k8s resource
-OK
+    ```bash
+    => Retrieve PostgreSQL k8s resource
+    OK
 
-=> Create a backup of the GitGuardian database
-OK
+    => Create a backup of the GitGuardian database
+    OK
 
-Backup successfully created at ***pg-dump-gitguardian-v1-20240223_162744.gz***
-```
+    Backup successfully created at ***pg-dump-gitguardian-v1-20240223_162744.gz***
+    ```
 
 4. Migrate GitGuardian to the new architecture with the following command:
 
-```bash
-./migrate.sh --namespace default --deploy
-```
+    ```bash
+    ./migrate.sh --namespace default --deploy
+    ```
 
-**Expected result:**
+    **Expected result:**
 
-```bash
-=> Migrate GitGuardian application
-    • Checking for application updates ✓  
+    ```bash
+    => Migrate GitGuardian application
+        • Checking for application updates ✓  
 
-    • There are currently 1 updates available in the Admin Console, ensuring latest is deployed
+        • There are currently 1 updates available in the Admin Console, ensuring latest is deployed
 
-    • To access the Admin Console, run kubectl kots admin-console --namespace <gitguardian_namespace>
+        • To access the Admin Console, run kubectl kots admin-console --namespace <gitguardian_namespace>
 
-    • Currently deployed release: sequence <N>, version YYYY.MM.PATCH
-    • Downloading available release: sequence <N>, version YYYY.MM.PATCH
-    • Deploying release: sequence <N>, version YYYY.MM.PATCH
-OK
-```
+        • Currently deployed release: sequence <N>, version YYYY.MM.PATCH
+        • Downloading available release: sequence <N>, version YYYY.MM.PATCH
+        • Deploying release: sequence <N>, version YYYY.MM.PATCH
+    OK
+    ```
 
 5. Restore the database dump with:
 
-```bash
-./restore-db.sh \
-    --namespace default \
-    -i <pg-dump-gitguardian-v1-YYYYmmDD_HHMMSS.gz>
-```
+    ```bash
+    ./restore-db.sh \
+        --namespace default \
+        -i <pg-dump-gitguardian-v1-YYYYmmDD_HHMMSS.gz>
+    ```
 
-**Expected result:**
+    **Expected result:**
 
-```bash
-=> Retrieve PostgreSQL pod
-OK
+    ```bash
+    => Retrieve PostgreSQL pod
+    OK
 
-=> Restore the GitGuardian DB
-OK
+    => Restore the GitGuardian DB
+    OK
 
-DB successfully restored from <pg-dump-gitguardian-v1-YYYYmmDD_HHMMSS.gz>
-```
+    DB successfully restored from <pg-dump-gitguardian-v1-YYYYmmDD_HHMMSS.gz>
+    ```
 
-- Your GitGuardian dashboard is now accessible.
+You should have now access to your GitGuardian dashboard.
 
 ## Rollback Procedure for embedded databases
 
@@ -137,75 +137,75 @@ If you encounter issues after migration, you can rollback to the legacy architec
 
 1. Optional: Create a new backup of the PostgreSQL database (or use your legacy database backup).
 
-```bash
-./scale.sh \
-    --namespace <gitguardian_namespace> \
-    --component hook \
-    --component internal-api \
-    --component internal-api-long \
-    --component public-api \
-    --replicas 0
-```
+    ```bash
+    ./scale.sh \
+        --namespace <gitguardian_namespace> \
+        --component hook \
+        --component internal-api \
+        --component internal-api-long \
+        --component public-api \
+        --replicas 0
+    ```
 
-**Expected result:**
+    **Expected result:**
 
-```bash
-=> Scale GitGuardian components to 0 replicas
-OK
-```
+    ```bash
+    => Scale GitGuardian components to 0 replicas
+    OK
+    ```
 
 2. Verify all workers are idle:
 
-```bash
-./inspect-workers.sh --namespace <gitguardian_namespace>
-```
+    ```bash
+    ./inspect-workers.sh --namespace <gitguardian_namespace>
+    ```
 
-**Expected result:**
+    **Expected result:**
 
-```bash
-=> All workers report: - empty -
-OK
-```
+    ```bash
+    => All workers report: - empty -
+    OK
+    ```
 
 3. Backup the GitGuardian PostgreSQL database:
 
-```bash
-./backup-db.sh --namespace <gitguardian_namespace> \
-    -o pg-dump-gitguardian-v2-$(date +'%Y%m%d_%H%M%S').gz
-```
+    ```bash
+    ./backup-db.sh --namespace <gitguardian_namespace> \
+        -o pg-dump-gitguardian-v2-$(date +'%Y%m%d_%H%M%S').gz
+    ```
 
-**Expected result:**
+    **Expected result:**
 
-```bash
-Backup successfully created at ***pg-dump-gitguardian-v2-20240223_172744.gz***
-```
+    ```bash
+    Backup successfully created at ***pg-dump-gitguardian-v2-20240223_172744.gz***
+    ```
 
 4. After updating your license, rollback GitGuardian to the legacy architecture:
 
-```bash
-./migrate.sh --namespace default --prune --deploy
-```
+    ```bash
+    ./migrate.sh --namespace default --prune --deploy
+    ```
 
-**Expected result:**
+    **Expected result:**
 
-```bash
-=> Uninstall and reinstall GitGuardian application
-OK
-```
+    ```bash
+    => Uninstall and reinstall GitGuardian application
+    OK
+    ```
 
 5. Restore the PostgreSQL dump:
 
-```bash
-./restore-db.sh \
-    --v1 \
-    --namespace default \
-    -i <pg-dump-gitguardian-vX-YYYYmmDD_HHMMSS.gz>
-```
+    ```bash
+    ./restore-db.sh \
+        --v1 \
+        --namespace default \
+        -i <pg-dump-gitguardian-vX-YYYYmmDD_HHMMSS.gz>
+    ```
 
-**Expected result:**
+    **Expected result:**
 
-```bash
-DB successfully restored from <pg-dump-gitguardian-v1-YYYYmmDD_HHMMSS.gz>
-```
+    ```bash
+    DB successfully restored from <pg-dump-gitguardian-v1-YYYYmmDD_HHMMSS.gz>
+    ```
 
-6. Access your GitGuardian dashboard.
+You should have now access to your GitGuardian dashboard.

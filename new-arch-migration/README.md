@@ -34,33 +34,33 @@ The new version must use the same GitGuardian version as the legacy version. Ple
 
 1. To begin with, please create a backup of your GitGuardian's external PostgreSQL database.
 2. You can now migration GitGuardian to the new architecture using the following command line:
-    
-```bash
-# For Online installation
-./migrate.sh --namespace <gitguardian_namespace> \
---deploy
+        
+    ```bash
+    # For Online installation
+    ./migrate.sh --namespace <gitguardian_namespace> \
+    --deploy
 
-# For Airgap installation
-./migrate.sh --namespace <gitguardian_namespace> \
---airgap-bundle <new_arch-version-airgap--bundle-file> \
---deploy
-```
+    # For Airgap installation
+    ./migrate.sh --namespace <gitguardian_namespace> \
+    --airgap-bundle <new_arch-version-airgap--bundle-file> \
+    --deploy
+    ```
 
-*Expected result:*
+    *Expected result:*
 
-```bash
-=> Migrate GitGuardian application
-    • Checking for application updates ✓  
+    ```bash
+    => Migrate GitGuardian application
+        • Checking for application updates ✓  
 
-    • There are currently 1 updates available in the Admin Console, ensuring latest is deployed
+        • There are currently 1 updates available in the Admin Console, ensuring latest is deployed
 
-    • To access the Admin Console, run kubectl kots admin-console --namespace <gitguardian_namespace>
+        • To access the Admin Console, run kubectl kots admin-console --namespace <gitguardian_namespace>
 
-    • Currently deployed release: sequence <N>, version YYYY.MM.PATCH
-    • Downloading available release: sequence <N>, version YYYY.MM.PATCH
-    • Deploying release: sequence <N>, version YYYY.MM.PATCH
-OK
-```
+        • Currently deployed release: sequence <N>, version YYYY.MM.PATCH
+        • Downloading available release: sequence <N>, version YYYY.MM.PATCH
+        • Deploying release: sequence <N>, version YYYY.MM.PATCH
+    OK
+    ```
     
 Et voilà! You should access to your GitGuardian dashboard.
 
@@ -135,103 +135,103 @@ At the end of the deployment, depending on how you expose the application (Ingre
 
 1. Run the `bg-migrate.sh` script to deploy the new application
 
-```bash
-# For online installation
-./bg-migrate.sh \
-  --v1-namespace <legacy_namespace> \
-  --v2-namespace <new_namespace> \
-  --license-file <v2_license_file> \
-  --shared-password "<kots_new_admin_password>" \
-  --set "app_hostname=<new_app_hostname>"
+    ```bash
+    # For online installation
+    ./bg-migrate.sh \
+      --v1-namespace <legacy_namespace> \
+      --v2-namespace <new_namespace> \
+      --license-file <v2_license_file> \
+      --shared-password "<kots_new_admin_password>" \
+      --set "app_hostname=<new_app_hostname>"
 
-# For airgap installation
-./bg-migrate.sh \
-  --v1-namespace <legacy_namespace> \
-  --v2-namespace <new_namespace> \
-  --airgap-bundle <new_airgap--bundle-file> \
-  --license-file <new_license_file> \
-  --shared-password "<kots_new_admin_password>" \
-  --set "app_hostname=<new_app_hostname>"
-```
+    # For airgap installation
+    ./bg-migrate.sh \
+      --v1-namespace <legacy_namespace> \
+      --v2-namespace <new_namespace> \
+      --airgap-bundle <new_airgap--bundle-file> \
+      --license-file <new_license_file> \
+      --shared-password "<kots_new_admin_password>" \
+      --set "app_hostname=<new_app_hostname>"
+    ```
 
-ℹ️ The script will perform the following steps:
-- Retrieve the legacy KOTS configuration from the specified legacy namespace.
-- In order to expose the new application alongside the legacy one, you need to update the KOTS configuration that was extracted from legacy and update the application hostname. Here it is done using `--set "app_hostname=<new_app_hostname>"`.
-- Deploy the new application in the specified new namespace (Will create it if not exists).
+    ℹ️ The script will perform the following steps:
+    - Retrieve the legacy KOTS configuration from the specified legacy namespace.
+    - In order to expose the new application alongside the legacy one, you need to update the KOTS configuration that was extracted from legacy and update the application hostname. Here it is done using `--set "app_hostname=<new_app_hostname>"`.
+    - Deploy the new application in the specified new namespace (Will create it if not exists).
 
-*Expected result:*
+    *Expected result:*
 
-```yaml
-=> Retrieve V1 kots configuration
-OK
+    ```yaml
+    => Retrieve V1 kots configuration
+    OK
 
-=> Set app_hostname in kots configuration
-OK
+    => Set app_hostname in kots configuration
+    OK
 
-=> Install V2 application
-  • Deploying Admin Console
-    • Creating namespace ✓  
-    • Waiting for datastore to be ready ✓  
-  • Waiting for Admin Console to be ready ✓  
-  • Waiting for installation to complete ✓  
-OK
-```
+    => Install V2 application
+      • Deploying Admin Console
+        • Creating namespace ✓  
+        • Waiting for datastore to be ready ✓  
+      • Waiting for Admin Console to be ready ✓  
+      • Waiting for installation to complete ✓  
+    OK
+    ```
 
 2. Once you are ready to switch the traffic to the new application:
 
-- Scale down the legacy application
-    
+    Scale down the legacy application
+        
     ```yaml
     ./scale.sh --namespace <v1_namespace> \ 
       --v1 \
       --all \
       --replicas 0
     ```
-    
-*Expected result:*
-    
-```yaml
-=> Retrieve GitGuardian deployments
-OK
+        
+    *Expected result:*
+        
+    ```yaml
+    => Retrieve GitGuardian deployments
+    OK
 
-=> Scale deployment.apps/redis to 0 replicas
-OK
+    => Scale deployment.apps/redis to 0 replicas
+    OK
 
-=> Scale deployment.apps/postgresql to 0 replicas
-OK
+    => Scale deployment.apps/postgresql to 0 replicas
+    OK
 
-=> Scale deployment.apps/gitguardian-scanner-ods to 0 replicas
-OK
+    => Scale deployment.apps/gitguardian-scanner-ods to 0 replicas
+    OK
 
-=> Scale deployment.apps/gitguardian-worker to 0 replicas
-OK
+    => Scale deployment.apps/gitguardian-worker to 0 replicas
+    OK
 
-=> Scale deployment.apps/gitguardian-long-tasks to 0 replicas
-OK
+    => Scale deployment.apps/gitguardian-long-tasks to 0 replicas
+    OK
 
-=> Scale deployment.apps/gitguardian-scanner to 0 replicas
-OK
+    => Scale deployment.apps/gitguardian-scanner to 0 replicas
+    OK
 
-=> Scale deployment.apps/gitguardian-email to 0 replicas
-OK
+    => Scale deployment.apps/gitguardian-email to 0 replicas
+    OK
 
-=> Scale deployment.apps/gitguardian-beat to 0 replicas
-OK
+    => Scale deployment.apps/gitguardian-beat to 0 replicas
+    OK
 
-=> Scale deployment.apps/gitguardian-app to 0 replicas
-OK
-```
+    => Scale deployment.apps/gitguardian-app to 0 replicas
+    OK
+    ```
     
 3. Update the new application hostname and deploy the new configuration using this command:
-    
-```yaml
-./update-config.sh --namespace <new_namespace> \
-    --set "app_hostname=<app_hostname>" \
-    --deploy
-```
+        
+    ```yaml
+    ./update-config.sh --namespace <new_namespace> \
+        --set "app_hostname=<app_hostname>" \
+        --deploy
+    ```
 
-Should you prefer using a `LoadBalancer` service over a `ClusterIP`, please adjust your [annotations](https://docs.gitguardian.com/self-hosting/management/infrastructure-management/load-balancer#kots-based-installation) accordingly.
+    Should you prefer using a `LoadBalancer` service over a `ClusterIP`, please adjust your [annotations](https://docs.gitguardian.com/self-hosting/management/infrastructure-management/load-balancer#kots-based-installation) accordingly.
 
-You should have now access to your GitGuardian dashboard.
+    You should have now access to your GitGuardian dashboard.
 
 4. Once you've verified that your GitGuardian application is functioning correctly, you may proceed to delete the legacy namespac in your kubernetes cluster. Please be aware that deleting the namespace will prevent any possibility of reverting to the legacy application.
