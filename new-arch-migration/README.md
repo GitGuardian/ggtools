@@ -5,43 +5,43 @@ To initiate the migration process or if you have any questions regarding the new
 Explore the [New Architecture documentation](https://docs.gitguardian.com/self-hosting/new-architecture) for a deep dive into its advantages, including enhanced performance, security, and scalability features. Our guide provides a thorough understanding of the architectural upgrades and the additional benefits of switching to the new version of GitGuardian.
 
 Migration can be approached in two ways to best suit your operational needs:
-- [In-place upgrade with external databases](./EXTERNAL#in-place-upgrade-with-external-databases) (approx. 1 hour of downtime)
-- [Blue/green upgrade with external databases](./EXTERNAL#bluegreen-upgrade-with-external-databases) (no downtime)
+- [In-place migration with external databases](./EXTERNAL#in-place-migration-with-external-databases) (approx. 1 hour of downtime)
+- [Blue/green migration with external databases](./EXTERNAL#bluegreen-migration-with-external-databases) (no downtime)
 
 Review and discuss both migration methods and reach out to our [support team](mailto:support@gitguardian.com?subject=Migration+New+Architecture) for tailored guidance and support throughout the transition process.
 
 ## Requirements
 
-GitGuardian provides a set of scripts that require specific tools to be installed on your host to facilitate application upgrades:
+GitGuardian provides a set of scripts that require specific tools to be installed on your host to facilitate application migration:
 
 - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) (version ≥ 1.27.0)
 - [kubectl kots plugin](https://docs.replicated.com/reference/kots-cli-getting-started#install) (version ≥ 1.107.7)
-- [yq](https://mikefarah.gitbook.io/yq/) (Only for Blue/Green Upgrade)
+- [yq](https://mikefarah.gitbook.io/yq/) (Only for Blue/Green Migration)
 
 You need to be an administrator of the GitGuardian namespace where the application is deployed.
 
 The new version must use the same GitGuardian version as the legacy version. Please ensure you have the latest legacy version installed before upgrading to the new version.
 
-⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to provide you with the new version of the application, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+upgrade+external) before upgrading.
+⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to provide you with the new version of the application, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+migration+external) before upgrading.
 
-## In-place upgrade with external databases
+## In-place migration with external databases
 
 ⚠️ Please note, this migration guide is specifically designed for customers who have installed GitGuardian on an [existing Kubernetes cluster with an external database](https://docs.gitguardian.com/self-hosting/installation/installation-existing-cluster-legacy). If your GitGuardian instance is running on an embedded cluster, visit this [page](./EMBEDDED.md).
 
-⚠️ This upgrade will require some downtime, which may take up to one hour.
+⚠️ This migration will require some downtime, which may take up to one hour.
 
 ℹ️ For airgap installation, first, download the airgap bundle file from your download portal.
 
 1. To begin with, please create a backup of your GitGuardian's external PostgreSQL database.
-2. You can now upgrade GitGuardian to the new architecture using the following command line:
+2. You can now migration GitGuardian to the new architecture using the following command line:
     
 ```bash
 # For Online installation
-./upgrade.sh --namespace <gitguardian_namespace> \
+./migrate.sh --namespace <gitguardian_namespace> \
 --deploy
 
 # For Airgap installation
-./upgrade.sh --namespace <gitguardian_namespace> \
+./migrate.sh --namespace <gitguardian_namespace> \
 --airgap-bundle <new_arch-version-airgap--bundle-file> \
 --deploy
 ```
@@ -49,7 +49,7 @@ The new version must use the same GitGuardian version as the legacy version. Ple
 *Expected result:*
 
 ```bash
-=> Upgrade GitGuardian application
+=> Migrate GitGuardian application
     • Checking for application updates ✓  
 
     • There are currently 1 updates available in the Admin Console, ensuring latest is deployed
@@ -74,16 +74,16 @@ Once the GitGuardian team has updated your license, you can rollback GitGuardian
 
 ```bash
 # For Online installation
-./upgrade.sh --namespace <gitguardian_namespace> \
+./migrate.sh --namespace <gitguardian_namespace> \
 --deploy
 
 # For Airgap installation
-./upgrade.sh --namespace <gitguardian_namespace> \
+./migrate.sh --namespace <gitguardian_namespace> \
 --airgap-bundle <new_airgap--bundle-file> \
 --deploy
 ```
 
-ℹ️ To avoid any conflicts during upgrade, it will first uninstall all existing releases based on the new architecture in `<gitguardian_namespace>`.
+ℹ️ To avoid any conflicts during the migration, it will first uninstall all existing releases based on the new architecture in `<gitguardian_namespace>`.
 
 *Expected result:*
 
@@ -106,7 +106,7 @@ OK
 release "redis" uninstalled
 OK
 
-=> Upgrade GitGuardian application
+=> Migrate GitGuardian application
     • Checking for application updates ✓  
 
     • There are currently 1 updates available in the Admin Console, ensuring latest is deployed
@@ -123,21 +123,21 @@ OK
 
 You should have now access to your GitGuardian dashboard.
 
-## Blue/green upgrade with external databases
+## Blue/green migration with external databases
 
 💁‍♂️ Please note that you will need to [contact GitGuardian](mailto:support@gitguardian.com?subject=Migration+New+Architecture-blue-green) to obtain a new license YAML file.
 
-This upgrade involves deploying the new version of GitGuardian in a separate namespace in the same existing cluster, alongside the current namespace containing the legacy GitGuardian application, so that this will prevent any downtime during the deployment of the new application. This is not possible to do the blue/green migration in the same namespace.
+💡 This migration automates deploying a new KOTS instance with the new architecture, using your legacy KOTS configuration. If you wish to transition from KOTS to Helm, manual recreation of the `values.yaml` file is necessary for redeployment. For assistance, [contact GitGuardian](mailto:support@gitguardian.com?subject=Migration+New+Architecture-blue-green+helm+only),
 
-The two versions of the application will use the same external databases.
+This migration will deploy a new version of GitGuardian in a separate namespace in the same existing cluster, alongside the current namespace containing the legacy GitGuardian application, so that this will prevent any downtime during the deployment of the new application. This is not possible to do the blue/green migration in the same namespace. The two versions of the application will use the same external databases.
 
 At the end of the deployment, depending on how you expose the application (Ingress, LoadBalancer), you will need to switch traffic to the new application.
 
-1. Run the `bg-upgrade.sh` script to deploy the new application
+1. Run the `bg-migrate.sh` script to deploy the new application
 
 ```bash
 # For online installation
-./bg-upgrade.sh \
+./bg-migrate.sh \
   --v1-namespace <legacy_namespace> \
   --v2-namespace <new_namespace> \
   --license-file <v2_license_file> \
@@ -145,7 +145,7 @@ At the end of the deployment, depending on how you expose the application (Ingre
   --set "app_hostname=<new_app_hostname>"
 
 # For airgap installation
-./bg-upgrade.sh \
+./bg-migrate.sh \
   --v1-namespace <legacy_namespace> \
   --v2-namespace <new_namespace> \
   --airgap-bundle <new_airgap--bundle-file> \

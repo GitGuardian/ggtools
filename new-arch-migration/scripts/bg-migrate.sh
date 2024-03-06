@@ -2,9 +2,9 @@
 
 #####
 #
-# -- Blue/Green upgrade of GitGuardian app --
+# -- Blue/Green migration of GitGuardian app --
 #
-# The upgrade process takes place within a single cluster and
+# The migration process takes place within a single cluster and
 # involves using separate namespaces for both V1 and V2.
 #
 # The script performs the following steps:
@@ -98,7 +98,7 @@ Usage:
     $(basename $0) [OPTIONS]
 
 Description:
-    Upgrade The GitGuardian application.
+    Migrate The GitGuardian application.
 
 OPTIONS:
 
@@ -109,10 +109,10 @@ OPTIONS:
         Path to the kubeconfig file to use for CLI requests
 
     --v1-namespace <string>
-        Specify the kubernetes V1 namespace
+        Specify the kubernetes V1 namespace (legacy)
 
     --v2-namespace <string>
-        Specify the kubernetes namespace
+        Specify the kubernetes namespace (new)
 
     --channel <string>
         Specify the kots application channel to use (Default: $V2_APP_CHANNEL)
@@ -130,7 +130,7 @@ OPTIONS:
         Specify the kots license file
 
     --shared-password <path>
-        Specify the kots password
+        Specify the kots password (new)
 
     --skip-preflights
         Skip preflight checks

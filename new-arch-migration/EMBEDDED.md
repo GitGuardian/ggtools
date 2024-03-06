@@ -1,24 +1,24 @@
-# In-place upgrade with embedded databases
+# In-place migration with embedded databases
 
 ## Requirements
 
-GitGuardian provides a set of scripts that require specific tools to be installed on your host to facilitate application upgrades:
+GitGuardian provides a set of scripts that require specific tools to be installed on your host to facilitate application migration:
 
 - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) (version ≥ 1.27.0)
 - [kubectl kots plugin](https://docs.replicated.com/reference/kots-cli-getting-started#install) (version ≥ 1.107.7)
-- [yq](https://mikefarah.gitbook.io/yq/) (Only for Blue/Green Upgrade)
+- [yq](https://mikefarah.gitbook.io/yq/) (Only for Blue/Green Migration)
 
 You need to be an administrator of the GitGuardian namespace where the application is deployed.
 
 The new version must use the same GitGuardian version as the legacy version. Please ensure you have the latest legacy version installed before upgrading to the new version.
 
-⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to provide you with the new version of the application, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+upgrade+embedded) before upgrading.
+⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to provide you with the new version of the application, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+migration+embedded) before upgrading.
 
 ⚠️ Please note, this migration guide is specifically designed for customers who have installed GitGuardian on an [embedded Kubernetes cluster with an embedded database](https://docs.gitguardian.com/self-hosting/installation/installation-embedded-cluster-legacy). If your GitGuardian instance is running on an existing cluster, visit this [page](./README.md).
 
 ## Migration Procedure
 
-⚠️ This upgrade requires downtime, the duration of which depends on your environment and the size of the GitGuardian PostgreSQL database, as it involves backing up and restoring the database.
+⚠️ This migration requires downtime, the duration of which depends on your environment and the size of the GitGuardian PostgreSQL database, as it involves backing up and restoring the database.
 
 1. Scale down the GitGuardian app deployment to make the application inaccessible, allowing workers to process remaining tasks.
 
@@ -85,16 +85,16 @@ OK
 Backup successfully created at ***pg-dump-gitguardian-v1-20240223_162744.gz***
 ```
 
-4. Upgrade GitGuardian to the new architecture with the following command:
+4. Migrate GitGuardian to the new architecture with the following command:
 
 ```bash
-./upgrade.sh --namespace default --deploy
+./migrate.sh --namespace default --deploy
 ```
 
 **Expected result:**
 
 ```bash
-=> Upgrade GitGuardian application
+=> Migrate GitGuardian application
     • Checking for application updates ✓  
 
     • There are currently 1 updates available in the Admin Console, ensuring latest is deployed
@@ -183,7 +183,7 @@ Backup successfully created at ***pg-dump-gitguardian-v2-20240223_172744.gz***
 4. After updating your license, rollback GitGuardian to the legacy architecture:
 
 ```bash
-./upgrade.sh --namespace default --prune --deploy
+./migrate.sh --namespace default --prune --deploy
 ```
 
 **Expected result:**

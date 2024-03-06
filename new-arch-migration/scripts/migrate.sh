@@ -2,7 +2,7 @@
 
 #####
 #
-# -- Upgrade GitGuardian app with the latest available version using kubectl kots plugin --
+# -- Migrate GitGuardian app with the latest available version using kubectl kots plugin --
 #
 #####
 
@@ -79,7 +79,7 @@ Usage:
     $(basename $0) [OPTIONS]
 
 Description:
-    Upgrade The GitGuardian application.
+    Migrate the GitGuardian application.
 
 OPTIONS:
 
@@ -195,7 +195,7 @@ if [[ "$PRUNE_FLAG" == "true" ]]; then
   fi
 fi
 
-echo_step "Upgrade GitGuardian application"
+echo_step "Migrate GitGuardian application"
 kubectl kots $KUBECTL_ARGS upstream upgrade $APP_SLUG \
   --wait $KOTS_ARGS 2>$ERROR_LOG_FILE
 echo_ok
