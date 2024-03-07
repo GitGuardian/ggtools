@@ -8,6 +8,11 @@ Migration can be approached in two ways to best suit your operational needs:
 - [In-place migration with external databases](#in-place-migration-with-external-databases) (approx. 1 hour of downtime)
 - [Blue/green migration with external databases](#bluegreen-migration-with-external-databases) (no downtime)
 
+Understanding the distinction between in-place and blue/green migration is crucial before proceeding with the guide. These strategies facilitate the shift from the legacy to the new architecture:
+
+- **In-Place Migration**: This method migrates GitGuardian to a new architecture within the same Kubernetes namespace, resulting in approximately up to 1 hour of downtime.
+- **Blue/Green Migration**: Unlike in-place migration, this strategy sets up a parallel "green" environment in a new Kubernetes namespace to deploy GitGuardian's new architecture version, enabling a transition with zero downtime.
+
 Review and discuss both migration methods and reach out to our [support team](mailto:support@gitguardian.com?subject=Migration+New+Architecture) for tailored guidance and support throughout the transition process.
 
 ## Requirements
