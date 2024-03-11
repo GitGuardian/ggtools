@@ -15,6 +15,10 @@ Understanding the distinction between in-place and blue/green migration is cruci
 
 Review and discuss both migration methods and reach out to our [support team](mailto:support@gitguardian.com?subject=Migration+New+Architecture) for tailored guidance and support throughout the transition process.
 
+## Application Topology Changes
+
+We have updated the names of specific containers in the GitGuardian Kubernetes deployment. This change could impact you if your custom monitoring solutions are closely linked to the specific names of these containers. We highly recommend reviewing the [side-by-side application topology page](./TOPOLOGY.md) to understand the differences between the 2 architectures. This will help you anticipate and adjust your monitoring setups accordingly.
+
 ## Requirements
 
 GitGuardian provides a set of scripts that require specific tools to be installed on your host to facilitate application migration:
