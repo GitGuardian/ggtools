@@ -11,7 +11,7 @@ Migration can be approached in two ways to best suit your operational needs:
 Understanding the distinction between in-place and blue/green migration is crucial before proceeding with the guide. These strategies facilitate the shift from the legacy to the new architecture:
 
 - **In-Place Migration**: This method migrates GitGuardian to a new architecture within the same Kubernetes namespace, resulting in approximately up to 1 hour of downtime.
-- **Blue/Green Migration**: Unlike in-place migration, this strategy sets up a parallel "green" environment in a new Kubernetes namespace to deploy GitGuardian's new architecture version, enabling a transition with zero downtime.
+- **Blue/Green Migration**: Unlike in-place migration, this strategy sets up a parallel "green" environment in a new Kubernetes namespace to deploy GitGuardian's new architecture, enabling a transition with zero downtime.
 
 Review and discuss both migration methods and reach out to our [support team](mailto:support@gitguardian.com?subject=Migration+New+Architecture) for tailored guidance and support throughout the transition process.
 
@@ -29,9 +29,9 @@ GitGuardian provides a set of scripts that require specific tools to be installe
 
 You need to be an administrator of the GitGuardian namespace where the application is deployed.
 
-The new version must use the same GitGuardian version as the legacy version. Please ensure you have the latest legacy version installed before upgrading to the new version.
+Please ensure you have the latest legacy version installed before upgrading to the new architecture.
 
-⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to provide you with the new architecture of the application, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+migration+external) before upgrading.
+⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to give you access to the new architecture, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+migration+external) before upgrading.
 
 ## In-place migration with external databases
 

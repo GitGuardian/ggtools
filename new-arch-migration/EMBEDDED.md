@@ -10,9 +10,9 @@ GitGuardian provides a set of scripts that require specific tools to be installe
 
 You need to be an administrator of the GitGuardian namespace where the application is deployed.
 
-The new version must use the same GitGuardian version as the legacy version. Please ensure you have the latest legacy version installed before upgrading to the new version.
+Please ensure you have the latest legacy version installed before upgrading to the new architecture.
 
-⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to provide you with the new version of the application, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+migration+embedded) before upgrading.
+⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to give you access to the new architecture, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+migration+external) before upgrading.
 
 ⚠️ Please note, this migration guide is specifically designed for customers who have installed GitGuardian on an [embedded Kubernetes cluster with an embedded database](https://docs.gitguardian.com/self-hosting/installation/installation-embedded-cluster-legacy). If your GitGuardian instance is running on an existing cluster, visit this [page](./README.md).
 
