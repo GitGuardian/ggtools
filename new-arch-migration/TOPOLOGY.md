@@ -1,6 +1,6 @@
 ## Application Topology
 
-Here's a side-by-side table comparing the new GitGuardian application container architecture with the legacy architecture. This table highlights the changes in deployment names and their usage between the two architecture. You can also find architecture diagrams on [this page](https://gg-code.pages.gitguardian.ovh/public-docs/jouhannet-release-2024-3-0/self-hosting/new-architecture#a-more-scalable-architecture).
+Here's a side-by-side table comparing the new GitGuardian architecture containers with the legacy architecture. This table highlights the changes in deployment names and their usage between the two architecture. You can also find architecture diagrams on [this page](https://gg-code.pages.gitguardian.ovh/public-docs/jouhannet-release-2024-3-0/self-hosting/new-architecture#a-more-scalable-architecture).
 
 | Aspect           | Kind         | New Deployment Name      | Usage                                                                                    | Legacy Deployment Name       | Legacy Usage                                                                      |
 |------------------|--------------|--------------------------|------------------------------------------------------------------------------------------|------------------------------|-----------------------------------------------------------------------------------|
