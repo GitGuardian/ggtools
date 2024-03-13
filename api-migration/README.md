@@ -1,7 +1,7 @@
 # Incidents Migration Procedure
 # Introduction:
 
-This document details the requirements of what can be migrated when users want to switch from one GitGuardian workspace to another. 
+This document details the requirements of what can be migrated when users want to switch from one GitGuardian instance to another. 
 
 The proposed flow would be to leverage the GitGuardian API to manage a proper mirroring of the information from an old instance to a new one, without the need to recreate the Database objects, and having the GitGuardian application naturally update the values of the incident fields.
 

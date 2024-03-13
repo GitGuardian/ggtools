@@ -2,7 +2,7 @@
 
 To initiate the migration process or if you have any questions regarding the new architecture, please reach out to our [support team](mailto:support@gitguardian.com?subject=Migration+New+Architecture). We aim for a smooth migration process to enhance your GitGuardian setup with a future-ready, secure, and scalable architecture that aligns with the demands of modern cloud environments.
 
-Explore the [New Architecture documentation](https://docs.gitguardian.com/self-hosting/new-architecture) for a deep dive into its advantages, including enhanced performance, security, and scalability features. Our guide provides a thorough understanding of the architectural upgrades and the additional benefits of switching to the new version of GitGuardian.
+Explore the [New Architecture documentation](https://docs.gitguardian.com/self-hosting/new-architecture) for a deep dive into its advantages, including enhanced performance, security, and scalability features. Our guide provides a thorough understanding of the architectural upgrades and the additional benefits of switching to the new architecture of GitGuardian.
 
 Migration can be approached in two ways to best suit your operational needs:
 - [In-place migration with external databases](#in-place-migration-with-external-databases) (approx. 1 hour of downtime)
@@ -31,7 +31,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
 
 The new version must use the same GitGuardian version as the legacy version. Please ensure you have the latest legacy version installed before upgrading to the new version.
 
-⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to provide you with the new version of the application, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+migration+external) before upgrading.
+⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to provide you with the new architecture of the application, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+migration+external) before upgrading.
 
 ## In-place migration with external databases
 
@@ -42,7 +42,7 @@ The new version must use the same GitGuardian version as the legacy version. Ple
 ℹ️ For airgap installation, first, download the airgap bundle file from your download portal.
 
 1. To begin with, please create a backup of your GitGuardian's external PostgreSQL database.
-2. You can now migration GitGuardian to the new architecture using the following command line:
+2. You can now migrate GitGuardian to the new architecture using the following command line:
         
     ```bash
     # For Online installation
