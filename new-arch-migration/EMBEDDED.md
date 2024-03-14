@@ -20,7 +20,13 @@ Please ensure you have the latest legacy version installed before upgrading to t
 
 ⚠️ This migration requires downtime, the duration of which depends on your environment and the size of the GitGuardian PostgreSQL database, as it involves backing up and restoring the database.
 
-1. Scale down the GitGuardian app deployment to make the application inaccessible, allowing workers to process remaining tasks.
+1. Save the Data Encryption Key and keep it in **a secure location**. Use the following command to display the key:
+
+  ```bash
+  kubectl get secrets gitguardian-env-variables -o jsonpath='{.data.DJANGO_SECRET_KEY}' | base64 -d
+  ```
+
+2. Scale down the GitGuardian app deployment to make the application inaccessible, allowing workers to process remaining tasks.
 
     ```bash
     ./scale.sh --v1 \
@@ -39,7 +45,7 @@ Please ensure you have the latest legacy version installed before upgrading to t
     OK
     ```
 
-2. Verify all asynchronous tasks are completed by running the following command until the expected result is obtained:
+3. Verify all asynchronous tasks are completed by running the following command until the expected result is obtained:
 
     ```bash
     ./inspect-workers.sh --v1 --namespace default
@@ -66,7 +72,7 @@ Please ensure you have the latest legacy version installed before upgrading to t
 
     Each worker should return: `- empty -`
 
-3. Backup the GitGuardian PostgreSQL database.
+4. Backup the GitGuardian PostgreSQL database.
 
     ```bash
     ./backup-db.sh --v1 --namespace default \
@@ -85,7 +91,7 @@ Please ensure you have the latest legacy version installed before upgrading to t
     Backup successfully created at ***pg-dump-gitguardian-v1-20240223_162744.gz***
     ```
 
-4. Migrate GitGuardian to the new architecture with the following command:
+5. Migrate GitGuardian to the new architecture with the following command:
 
     ```bash
     ./migrate.sh --namespace default --deploy
@@ -107,7 +113,7 @@ Please ensure you have the latest legacy version installed before upgrading to t
     OK
     ```
 
-5. Restore the database dump with:
+6. Restore the database dump with:
 
     ```bash
     ./restore-db.sh \
