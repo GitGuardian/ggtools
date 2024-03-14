@@ -45,11 +45,11 @@ Please ensure you have the latest legacy version installed before upgrading to t
 
 2. Save the Data Encryption Key and keep it in **a secure location**. Use the following command to display the key:
 
-  ```bash
-  kubectl get secrets gitguardian-env-variables --namespace=<namespace> -o jsonpath='{.data.DJANGO_SECRET_KEY}' | base64 -d
-  ```
+    ```bash
+    kubectl get secrets gitguardian-env-variables --namespace=<namespace> -o jsonpath='{.data.DJANGO_SECRET_KEY}' | base64 -d
+    ```
 
-  If needed, specify the Kubernetes namespace with `--namespace` (default namespace is used if not specified).
+    If needed, specify the Kubernetes namespace with `--namespace` (default namespace is used if not specified).
 
 3. You can now migrate GitGuardian to the new architecture using the following command line:
         

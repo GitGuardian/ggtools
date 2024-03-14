@@ -22,9 +22,9 @@ Please ensure you have the latest legacy version installed before upgrading to t
 
 1. Save the Data Encryption Key and keep it in **a secure location**. Use the following command to display the key:
 
-  ```bash
-  kubectl get secrets gitguardian-env-variables -o jsonpath='{.data.DJANGO_SECRET_KEY}' | base64 -d
-  ```
+    ```bash
+    kubectl get secrets gitguardian-env-variables -o jsonpath='{.data.DJANGO_SECRET_KEY}' | base64 -d
+    ```
 
 2. Scale down the GitGuardian app deployment to make the application inaccessible, allowing workers to process remaining tasks.
 
