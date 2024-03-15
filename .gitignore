@@ -1,0 +1,31 @@
+# Catch sensitive files
+.env
+secrets.py
+secret.py
+secrets
+
+# Mac
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Ipython notebook
+*.ipynb_checkpoints
+
+# Virtualenvs
+env/
+
+# Packages
+*.egg
+*.egg-info
+build
+eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+lib
+lib64
