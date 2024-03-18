@@ -10,3 +10,4 @@ Tools | Description
 ------------ | -------------
 [api-migration](./api-migration) | Facilitates the migration of incident remediation progress across different environments, including SaaS ↔ Self-Hosted, Self-Hosted ↔ Self-Hosted, and SaaS ↔ SaaS.
 [new-arch-migration](./new-arch-migration) | Assists in transitioning from the legacy GitGuardian architecture to the new architecture for Self-Hosted environments.
+[helm-preflights](./helm-preflights) | Used to ensure Gitguardian requirements are respected. It runs tests both from user and cluster space.
