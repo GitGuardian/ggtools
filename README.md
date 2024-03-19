@@ -1,6 +1,12 @@
-This repository contains shared tools and scripts that can be useful for GitGuardian's customers.
+# GitGuardian Tools
 
-The tools available will be detailed in this readme file.
+Welcome to the GitGuardian Tools Repository! Here, you'll find a collection of shared tools and scripts designed to enhance the experience of GitGuardian's customers.
 
-- API Migration Script : This script is meant for migrating the incident remediation progress from one workspace to another regardless if SaaS or Onprem.
-	- It can be found under the API_migration branch in this repository. 
+Should you have any inquiries or need assistance, please don't hesitate to contact our [support team](mailto:support@gitguardian.com?subject=Inquiry+about+GitGuardian+Tools).
+
+Below is a brief overview of the tools available in this repository:
+
+Tools | Description
+------------ | -------------
+[api-migration](./api-migration) | Facilitates the migration of incident remediation progress across different environments, including SaaS ↔ Self-Hosted, Self-Hosted ↔ Self-Hosted, and SaaS ↔ SaaS.
+[new-arch-migration](./new-arch-migration) | Assists in transitioning from the legacy GitGuardian architecture to the new architecture for Self-Hosted environments.
