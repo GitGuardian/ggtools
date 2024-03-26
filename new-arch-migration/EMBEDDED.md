@@ -10,7 +10,7 @@ GitGuardian provides a set of scripts that require specific tools to be installe
 
 You need to be an administrator of the GitGuardian namespace where the application is deployed.
 
-Please ensure you have the latest legacy version installed before upgrading to the new architecture.
+⚠️ Please ensure you have the latest legacy version installed before upgrading to the new architecture.
 
 ⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to give you access to the new architecture, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+migration+external) before upgrading.
 
@@ -105,7 +105,7 @@ Please ensure you have the latest legacy version installed before upgrading to t
 
         • There are currently 1 updates available in the Admin Console, ensuring latest is deployed
 
-        • To access the Admin Console, run kubectl kots admin-console --namespace <gitguardian_namespace>
+        • To access the Admin Console, run kubectl kots admin-console --namespace default
 
         • Currently deployed release: sequence <N>, version YYYY.MM.PATCH
         • Downloading available release: sequence <N>, version YYYY.MM.PATCH
@@ -145,7 +145,7 @@ If you encounter issues after migration, you can rollback to the legacy architec
 
     ```bash
     ./scale.sh \
-        --namespace <gitguardian_namespace> \
+        --namespace default \
         --component hook \
         --component internal-api \
         --component internal-api-long \
@@ -163,7 +163,7 @@ If you encounter issues after migration, you can rollback to the legacy architec
 2. Verify all workers are idle:
 
     ```bash
-    ./inspect-workers.sh --namespace <gitguardian_namespace>
+    ./inspect-workers.sh --namespace default
     ```
 
     **Expected result:**
@@ -176,7 +176,7 @@ If you encounter issues after migration, you can rollback to the legacy architec
 3. Backup the GitGuardian PostgreSQL database:
 
     ```bash
-    ./backup-db.sh --namespace <gitguardian_namespace> \
+    ./backup-db.sh --namespace default \
         -o pg-dump-gitguardian-v2-$(date +'%Y%m%d_%H%M%S').gz
     ```
 

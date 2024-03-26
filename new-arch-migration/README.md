@@ -29,7 +29,7 @@ GitGuardian provides a set of scripts that require specific tools to be installe
 
 You need to be an administrator of the GitGuardian namespace where the application is deployed.
 
-Please ensure you have the latest legacy version installed before upgrading to the new architecture.
+⚠️ Please ensure you have the latest legacy version installed before upgrading to the new architecture.
 
 ⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to give you access to the new architecture, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+migration+external) before upgrading.
 
