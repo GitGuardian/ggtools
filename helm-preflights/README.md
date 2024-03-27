@@ -1,0 +1,41 @@
+# Helm preflights
+
+Helm preflights are a set of tests that could be run anytime to ensure your cluster meets Gitguardian requirements.
+
+This folder contains a script (`preflights.sh`) that:
+- Generates tests templates according to the provided values files
+- Runs tests
+- Fetches and displays the results
+- Pushes results inside a Kubernetes secret in your cluster
+
+## Requirements
+
+The Kubernetes namespace should be the one that will be used for Gitguardian app.
+
+This script will work from Gitguardian version **2024.4.0**.
+
+Additionally, the script requires the following:
+- [helm v3](https://helm.sh/docs/intro/install/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) (version ≥ 1.27.0)
+- [kubectl preflight plugin](https://troubleshoot.sh/docs/#installation) (version ≥ 0.84.0, possible to install through the script)
+
+It is designed to run similarly to `helm install` command, an example is provided below.
+
+## Usage
+
+Among all the options, you can:
+- Define several values file
+- Define the namespace
+- Force retemplating (in case of values update)
+- Install `kubectl preflight` plugin
+
+You may run `./preflights --help` to see all options.
+
+### Example
+
+```bash
+./preflights.sh \
+-n <namespace> \
+-f local-values.yaml \
+oci://registry.replicated.com/gitguardian/gitguardian
+```

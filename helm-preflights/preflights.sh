@@ -40,6 +40,9 @@ OPTIONS:
 
     -f FILE
         Pass a values file, can be used several times
+
+    -n NAMESPACE
+        Specify the Kubernetes destination namespace
         
     --local
         Execute only local tests
@@ -67,6 +70,7 @@ LOCAL_PREFLIGHTS_TEMPLATE="templates/on-prem/helm_preflights_local.yaml"
 
 #inputs
 CHART=""
+NAMESPACE=""
 LOCAL_CHECKS="yes"
 REMOTE_CHECKS="yes"
 VALUES_FILES=""
@@ -88,6 +92,11 @@ while (("$#")); do
     ;;
   --remote)
     LOCAL_CHECKS="no"
+    shift
+    ;;
+  -n)
+    shift
+    NAMESPACE="--namespace $1"
     shift
     ;;
   --force)
@@ -156,7 +165,7 @@ then
   if [[ ! -f "$script_dir/local_preflights.yaml" ]] || [[ "$FORCE" == "yes" ]] ;
   then
     echo -e "--- TEMPLATING LOCAL TESTS"
-    helm template $VALUES_FILES -s $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml
+    helm template $NAMESPACE $VALUES_FILES -s $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml
     retcode_localtpl=$?
     if [ $retcode_localtpl -ne 0 ];
     then
@@ -170,7 +179,7 @@ then
   if [ -z ${retcode_localtpl+x} ] || [ $retcode_localtpl -eq 0 ];
   then
     echo -e "--- RUNNING LOCAL TESTS"
-    output=`kubectl preflight --interactive=false $script_dir/local_preflights.yaml 2>/dev/null`
+    output=`kubectl $NAMESPACE preflight --interactive=false $script_dir/local_preflights.yaml 2>/dev/null`
     retcode=$?
     echo -e "$output"
     GLOBAL_OUTPUT+="--- RUNNING LOCAL TESTS$output"
@@ -193,12 +202,12 @@ fi
 if [[ "$REMOTE_CHECKS" == "yes" ]];
 then
 
-  kubectl get cronjob gitguardian-remote-preflights &>/dev/null
+  kubectl $NAMESPACE get cronjob gitguardian-remote-preflights &>/dev/null
   existingTests=$?
 
   if [[ $existingTests -ne 0 ]] || [[ "$FORCE" == "yes" ]] ; then
     echo -e "--- TEMPLATING REMOTE TESTS"
-    helm template $VALUES_FILES -s $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml
+    helm template $NAMESPACE $VALUES_FILES -s $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml
     retcode_remotetpl=$?
     if [ $retcode_remotetpl -ne 0 ];
     then
@@ -206,7 +215,7 @@ then
       REMOTE_CHECKS_STATUS="error"
       GLOBAL_RC=1
     else  
-      kubectl apply -f $script_dir/remote_preflights.yaml 1>/dev/null
+      kubectl $NAMESPACE apply -f $script_dir/remote_preflights.yaml 1>/dev/null
       sleep 2
     fi
     rm -f $script_dir/remote_preflights.yaml
@@ -217,15 +226,15 @@ then
     echo -e "--- RUNNING REMOTE TESTS"
 
     #Unsuspend = start job
-    kubectl patch cronjob gitguardian-remote-preflights -p '{"spec":{"suspend":false}}' 1>/dev/null
+    kubectl $NAMESPACE patch cronjob gitguardian-remote-preflights -p '{"spec":{"suspend":false}}' 1>/dev/null
     sleep 5
-    pod=$(kubectl get pods -l gitguardian=remote-preflight --sort-by=.metadata.creationTimestamp -o 'jsonpath={.items[-1].metadata.name}')
+    pod=$(kubectl $NAMESPACE get pods -l gitguardian=remote-preflight --sort-by=.metadata.creationTimestamp -o 'jsonpath={.items[-1].metadata.name}')
     # Suspend = stop cronjob
-    kubectl patch cronjob gitguardian-remote-preflights -p '{"spec":{"suspend":true}}' 1>/dev/null
-    
+    kubectl $NAMESPACE patch cronjob gitguardian-remote-preflights -p '{"spec":{"suspend":true}}' 1>/dev/null
+    echo -e "If this step is too long, please check the pod is running in the accurate namespace"
     while true; do
       # Check the status of the pod
-      pod_status=$(kubectl get pod $pod -o jsonpath='{.status.phase}')
+      pod_status=$(kubectl $NAMESPACE get pod $pod -o jsonpath='{.status.phase}')
 
       # If pod_status is not empty, the pod has reached a terminal state
       if [ -n "$pod_status" ]; then
@@ -235,18 +244,18 @@ then
                   ;;
               "Failed")
                   break
-                  ;;
+                  ;;                                        
           esac
       fi
       sleep 5
     done
 
     # Print preflights output
-    output=`kubectl logs $pod`
+    output=`kubectl $NAMESPACE logs $pod`
     echo -e "$output"
     GLOBAL_OUTPUT+="
 --- RUNNING REMOTE TESTS$output"
-    retcode=$(kubectl get pods $pod -o 'jsonpath={.status.containerStatuses[0].state.terminated.exitCode}')
+    retcode=$(kubectl $NAMESPACE get pods $pod -o 'jsonpath={.status.containerStatuses[0].state.terminated.exitCode}')
     if [ $retcode -eq 0 ];
     then
       echo_pass
@@ -271,16 +280,16 @@ then
 $GLOBAL_OUTPUT
 K8SSECRET
 
-  kubectl create secret generic gitguardian-preflights-results \
+  kubectl $NAMESPACE create secret generic gitguardian-preflights-results \
   --save-config=true \
   --dry-run=client \
   --from-file="$script_dir/raw_output" \
   -o yaml | \
-  kubectl apply -f -
+  kubectl $NAMESPACE apply -f -
   rm -f $script_dir/raw_output
 
   #add this for telemetry usage later in backend
-  kubectl patch secrets gitguardian-preflights-results -p='{"stringData":{"STATUS_LOCAL":"'$LOCAL_CHECKS_STATUS'","STATUS_REMOTE":"'$REMOTE_CHECKS_STATUS'"}}'
+  kubectl $NAMESPACE patch secrets gitguardian-preflights-results -p='{"stringData":{"STATUS_LOCAL":"'$LOCAL_CHECKS_STATUS'","STATUS_REMOTE":"'$REMOTE_CHECKS_STATUS'"}}'
 fi
 
 exit $GLOBAL_RC
