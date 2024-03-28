@@ -1,6 +1,6 @@
 # Helm preflights
 
-Helm preflights are a set of tests that could be run anytime to ensure your cluster meets Gitguardian requirements.
+The Helm preflights are a set of tests that can be run at any time to ensure your cluster meets Gitguardian's requirements.
 
 This folder contains a script (`preflights.sh`) that:
 - Generates tests templates according to the provided values files
