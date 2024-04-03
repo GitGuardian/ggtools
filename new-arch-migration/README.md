@@ -52,7 +52,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
     If needed, specify the Kubernetes namespace with `--namespace` (default namespace is used if not specified).
 
 3. You can now migrate GitGuardian to the new architecture using the following command line:
-        
+
     ```bash
     # For Online installation
     ./migrate.sh --namespace <gitguardian_namespace> \
@@ -68,7 +68,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
 
     ```bash
     => Migrate GitGuardian application
-        • Checking for application updates ✓  
+        • Checking for application updates ✓
 
         • There are currently 1 updates available in the Admin Console, ensuring latest is deployed
 
@@ -79,8 +79,10 @@ You need to be an administrator of the GitGuardian namespace where the applicati
         • Deploying release: sequence <N>, version YYYY.MM.PATCH
     OK
     ```
-    
+
 Et voilà! You should access to your GitGuardian dashboard.
+
+ℹ️ Please note that a new Ingress/LoadBalancer resource will be created during the migration and will replace the old one, so you will need to manually update any DNS CNAME record pointing to that resource after the migration.
 
 ### Rollback procedure
 
@@ -125,7 +127,7 @@ release "redis" uninstalled
 OK
 
 => Migrate GitGuardian application
-    • Checking for application updates ✓  
+    • Checking for application updates ✓
 
     • There are currently 1 updates available in the Admin Console, ensuring latest is deployed
 
@@ -188,26 +190,26 @@ At the end of the deployment, depending on how you expose the application (Ingre
 
     => Install V2 application
       • Deploying Admin Console
-        • Creating namespace ✓  
-        • Waiting for datastore to be ready ✓  
-      • Waiting for Admin Console to be ready ✓  
-      • Waiting for installation to complete ✓  
+        • Creating namespace ✓
+        • Waiting for datastore to be ready ✓
+      • Waiting for Admin Console to be ready ✓
+      • Waiting for installation to complete ✓
     OK
     ```
 
 2. Once you are ready to switch the traffic to the new application:
 
     Scale down the legacy application
-        
+
     ```yaml
-    ./scale.sh --namespace <v1_namespace> \ 
+    ./scale.sh --namespace <v1_namespace> \
       --v1 \
       --all \
       --replicas 0
     ```
-        
+
     *Expected result:*
-        
+
     ```yaml
     => Retrieve GitGuardian deployments
     OK
@@ -239,9 +241,9 @@ At the end of the deployment, depending on how you expose the application (Ingre
     => Scale deployment.apps/gitguardian-app to 0 replicas
     OK
     ```
-    
+
 3. Update the new application hostname and deploy the new configuration using this command:
-        
+
     ```yaml
     ./update-config.sh --namespace <new_namespace> \
         --set "app_hostname=<app_hostname>" \
