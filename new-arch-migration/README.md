@@ -145,7 +145,7 @@ You should have now access to your GitGuardian dashboard.
 
 💁‍♂️ Please note that you will need to [contact GitGuardian](mailto:support@gitguardian.com?subject=Migration+New+Architecture-blue-green) to obtain a new license YAML file.
 
-💡 This migration automates deploying a new KOTS instance with the new architecture, using your legacy KOTS configuration. If you wish to transition from KOTS to Helm, manual recreation of the `values.yaml` file is necessary for redeployment. For assistance, [contact GitGuardian](mailto:support@gitguardian.com?subject=Migration+New+Architecture-blue-green+helm+only),
+💡 This migration automates deploying a new KOTS instance with the new architecture, using your legacy KOTS configuration. If you wish to transition from KOTS to Helm, manual recreation of the `values.yaml` file is necessary for redeployment. For assistance, [contact GitGuardian](mailto:support@gitguardian.com?subject=Migration+New+Architecture-blue-green+helm+only).
 
 This migration will deploy a new version of GitGuardian in a separate namespace in the same existing cluster, alongside the current namespace containing the legacy GitGuardian application, so that this will prevent any downtime during the deployment of the new application. This is not possible to do the blue/green migration in the same namespace. The two versions of the application will use the same external databases.
 
@@ -252,4 +252,4 @@ At the end of the deployment, depending on how you expose the application (Ingre
 
     You should have now access to your GitGuardian dashboard.
 
-4. Once you've verified that your GitGuardian application is functioning correctly, you may proceed to delete the legacy namespac in your kubernetes cluster. Please be aware that deleting the namespace will prevent any possibility of reverting to the legacy application.
+4. Once you've verified that your GitGuardian application is functioning correctly, you may proceed to delete the legacy namespace in your kubernetes cluster. Please be aware that deleting the namespace will prevent any possibility of reverting to the legacy application.
