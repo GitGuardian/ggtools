@@ -244,7 +244,7 @@ At the end of the deployment, depending on how you expose the application (Ingre
         
     ```yaml
     ./update-config.sh --namespace <new_namespace> \
-        --set "app_hostname=<app_hostname>" \
+        --set "app_hostname=<new_app_hostname>" \
         --deploy
     ```
 
