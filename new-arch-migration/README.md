@@ -200,7 +200,7 @@ At the end of the deployment, depending on how you expose the application (Ingre
     Scale down the legacy application
         
     ```yaml
-    ./scale.sh --namespace <v1_namespace> \ 
+    ./scale.sh --namespace <legacy_namespace> \ 
       --v1 \
       --all \
       --replicas 0
