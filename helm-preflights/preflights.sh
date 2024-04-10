@@ -67,6 +67,7 @@ USAGE
 #conf
 REMOTE_PREFLIGHTS_TEMPLATE="templates/on-prem/helm_preflights_remote.yaml"
 LOCAL_PREFLIGHTS_TEMPLATE="templates/on-prem/helm_preflights_local.yaml"
+PREFLIGHTS_TEMPLATING_OPTION="--set onPrem.preflightsTemplating.enabled=true"
 
 #inputs
 CHART=""
@@ -171,7 +172,7 @@ then
   if [[ ! -f "$script_dir/local_preflights.yaml" ]] || [[ "$FORCE" == "yes" ]] ;
   then
     echo -e "--- TEMPLATING LOCAL TESTS"
-    helm template $NAMESPACE $VALUES_FILES -s $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml
+    helm template $NAMESPACE $VALUES_FILES $PREFLIGHTS_TEMPLATING_OPTION -s $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml
     retcode_localtpl=$?
     if [ $retcode_localtpl -ne 0 ];
     then
@@ -213,7 +214,7 @@ then
 
   if [[ $existingTests -ne 0 ]] || [[ "$FORCE" == "yes" ]] ; then
     echo -e "--- TEMPLATING REMOTE TESTS"
-    helm template $NAMESPACE $VALUES_FILES -s $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml
+    helm template $NAMESPACE $VALUES_FILES $PREFLIGHTS_TEMPLATING_OPTION -s $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml
     retcode_remotetpl=$?
     if [ $retcode_remotetpl -ne 0 ];
     then
