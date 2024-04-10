@@ -39,6 +39,8 @@ V2_APP_SLUG="gitguardian"
 V2_APP_CHANNEL="stable"
 V2_NAMESPACE=""
 
+ENSURE_RBAC="false"
+
 # --- Functions
 function cleanup() {
   if [[ -f "$KOTS_CONFIG_TEMPFILE" ]]; then
@@ -132,6 +134,9 @@ OPTIONS:
     --shared-password <path>
         Specify the kots password (new)
 
+    --ensure-rbac
+        When enabled, the script attempts to create the (cluster-scoped) RBAC resources necessary to manage applications.
+
     --skip-preflights
         Skip preflight checks
 
@@ -148,6 +153,7 @@ while (("$#")); do
   case "$1" in
   --context | --kubeconfig)
     KOTS_ARGS="${KOTS_ARGS} $1=$2"
+    KUBECTL_ARGS="${KUBECTL_ARGS} $1=$2"
     shift 2
     ;;
   --v1-namespace)
@@ -161,6 +167,10 @@ while (("$#")); do
   --channel)
     V2_APP_CHANNEL=$2
     shift 2
+    ;;
+  --ensure-rbac)
+    ENSURE_RBAC="true"
+    shift
     ;;
   --config-values)
     KOTS_CONFIG_FILE=$2
@@ -236,6 +246,57 @@ fi
 trap _exit EXIT
 trap 'exit 1' ERR
 
+if [[ "$ENSURE_RBAC" == "true" ]]; then
+  echo_step "Create "$V2_NAMESPACE" namespace"
+  kubectl $KUBECTL_ARGS \
+    create namespace "$V2_NAMESPACE" --dry-run=client -o yaml | kubectl $KUBECTL_ARGS apply -f -
+  echo_ok
+
+  echo_step "Create minimal cluster-scoped RBAC permissions"
+  kubectl $KUBECTL_ARGS apply -n "${V2_NAMESPACE}" -f - <<EOF
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kotsadm
+  labels:
+    kots.io/backup: velero
+    kots.io/kotsadm: "true"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kotsadm-role
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces", "nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kotsadm-rolebinding
+  labels:
+    kots.io/backup: velero
+    kots.io/kotsadm: "true"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kotsadm-role
+subjects:
+  - kind: ServiceAccount
+    name: kotsadm
+    namespace: ${V2_NAMESPACE}
+EOF
+  echo_ok
+fi
+
 if [[ -z "$KOTS_CONFIG_FILE" ]]; then
   KOTS_CONFIG_FILE="$KOTS_CONFIG_TEMPFILE"
   echo_step "Retrieve V1 kots configuration"
@@ -259,6 +320,7 @@ echo_step "Install V2 application"
 kubectl kots install "${V2_APP_SLUG}/${V2_APP_CHANNEL}" \
   $KOTS_ARGS \
   --namespace "$V2_NAMESPACE" \
+  --use-minimal-rbac \
   --config-values "$KOTS_CONFIG_FILE" \
   --no-port-forward \
   --wait-duration "30m" $KOTS_INSTALL_ARGS 2>$ERROR_LOG_FILE
