@@ -141,6 +141,51 @@ OK
 
 ℹ️ Please note that the deployment process will continue for a few minutes after the script has ended.
 
+ℹ️ if you prefer to delegate the management of RBAC permissions, you can remove the `--ensure-rbac` flag, in this case, to meet the requirements, the following actions must be performed before running the migration script:
+  - Create the <new_namespace>
+  - Apply the following RBAC permissions on the cluster (remember to replace <new_namespace> placeholders before):
+```yaml
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kotsadm
+  namespace: <new_namespace>
+  labels:
+    kots.io/backup: velero
+    kots.io/kotsadm: "true"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kotsadm-role
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces", "nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kotsadm-rolebinding
+  labels:
+    kots.io/backup: velero
+    kots.io/kotsadm: "true"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kotsadm-role
+subjects:
+  - kind: ServiceAccount
+    name: kotsadm
+    namespace: <new_namespace>
+```
 You should have now access to your GitGuardian dashboard.
 
 ## Blue/green migration with external databases
@@ -160,7 +205,8 @@ At the end of the deployment, depending on how you expose the application (Ingre
     ./bg-migrate.sh \
       --v1-namespace <legacy_namespace> \
       --v2-namespace <new_namespace> \
-      --license-file <v2_license_file> \
+      --ensure-rbac \
+      --license-file <new_license_file> \
       --shared-password "<kots_new_admin_password>" \
       --set "app_hostname=<new_app_hostname>"
 
@@ -168,6 +214,7 @@ At the end of the deployment, depending on how you expose the application (Ingre
     ./bg-migrate.sh \
       --v1-namespace <legacy_namespace> \
       --v2-namespace <new_namespace> \
+      --enseure-rbac \
       --airgap-bundle <new_airgap--bundle-file> \
       --license-file <new_license_file> \
       --shared-password "<kots_new_admin_password>" \
@@ -175,6 +222,9 @@ At the end of the deployment, depending on how you expose the application (Ingre
     ```
 
     ℹ️ The script will perform the following steps:
+    - When `--ensure-rbac` flag is specified:
+      - Create the new namespace.
+      - Create minimal cluster-scoped RBAC permissions for kots.
     - Retrieve the legacy KOTS configuration from the specified legacy namespace.
     - In order to expose the new application alongside the legacy one, you need to update the KOTS configuration that was extracted from legacy and update the application hostname. Here it is done using `--set "app_hostname=<new_app_hostname>"`.
     - Deploy the new application in the specified new namespace (Will create it if not exists).
@@ -182,6 +232,12 @@ At the end of the deployment, depending on how you expose the application (Ingre
     *Expected result:*
 
     ```yaml
+    => Create <v2-namespace> namespace
+    OK
+
+    => Create minimal cluster-scoped RBAC permissions
+    OK
+
     => Retrieve V1 kots configuration
     OK
 
@@ -197,12 +253,14 @@ At the end of the deployment, depending on how you expose the application (Ingre
     OK
     ```
 
+
+
 2. Once you are ready to switch the traffic to the new application:
 
     Scale down the legacy application
 
     ```yaml
-    ./scale.sh --namespace <legacy_namespace> \ 
+    ./scale.sh --namespace <legacy_namespace> \
       --v1 \
       --all \
       --replicas 0
