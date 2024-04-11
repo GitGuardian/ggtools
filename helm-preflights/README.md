@@ -29,7 +29,7 @@ Among all the options, you can:
 - Force retemplating (in case of values update)
 - Install `kubectl preflight` plugin
 
-To view all options, run `./preflights --help`.
+To view all options, run `./preflights.sh --help`.
 
 ### Example
 
