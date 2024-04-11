@@ -60,7 +60,10 @@ OPTIONS:
         Force retemplating even if preflights have been played before     
 
     --nosave
-        Do not save results in-cluster (not recommended)            
+        Do not save results in-cluster (not recommended)
+
+    --no-replicated
+        Use this option for dev, do not render Replicated pull secrets                      
 
     -h | --help
         Display this help message
@@ -70,7 +73,7 @@ USAGE
 #conf
 REMOTE_PREFLIGHTS_TEMPLATE="templates/on-prem/helm_preflights_remote.yaml"
 LOCAL_PREFLIGHTS_TEMPLATE="templates/on-prem/helm_preflights_local.yaml"
-PULL_SECRETS_TEMPLATE="templates/image-pull-secrets.yaml"
+PULL_SECRETS_OPTION="-s templates/image-pull-secrets.yaml"
 PREFLIGHTS_TEMPLATING_OPTION="--set onPrem.preflightsTemplating.enabled=true"
 
 #inputs
@@ -118,6 +121,10 @@ while (("$#")); do
     INSTALL_PREFLIGHT="yes"
     shift
     ;;
+  --no-replicated)
+    PULL_SECRETS_OPTION=""
+    shift
+    ;;    
   --nosave)
     SAVE="no"
     shift
@@ -224,7 +231,7 @@ then
 
   if [[ $existingTests -ne 0 ]] || [[ "$FORCE" == "yes" ]] ; then
     echo -e "--- TEMPLATING REMOTE TESTS"
-    helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION -s $REMOTE_PREFLIGHTS_TEMPLATE -s $PULL_SECRETS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml
+    helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION -s $REMOTE_PREFLIGHTS_TEMPLATE $PULL_SECRETS_OPTION $CHART > $script_dir/remote_preflights.yaml
     retcode_remotetpl=$?
     if [ $retcode_remotetpl -ne 0 ];
     then
@@ -294,17 +301,17 @@ if [[ "$SAVE" == "yes" ]];
 then
   echo -e "--- SAVING RESULTS TO SECRET gitguardian-preflights-results"
   #Used to preserve formatting
-  cat <<K8SSECRET > $script_dir/raw_output
+  cat <<K8SSECRET > $script_dir/preflights-output
 $GLOBAL_OUTPUT
 K8SSECRET
 
   kubectl create secret generic gitguardian-preflights-results \
   --save-config=true \
   --dry-run=client \
-  --from-file="$script_dir/raw_output" \
+  --from-file="$script_dir/preflights-output" \
   -o yaml | \
   kubectl apply $NAMESPACE -f -
-  rm -f $script_dir/raw_output
+  rm -f $script_dir/preflights-output
 
   #add this for telemetry usage later in backend
   kubectl patch secrets gitguardian-preflights-results $NAMESPACE -p='{"stringData":{"STATUS_LOCAL":"'$LOCAL_CHECKS_STATUS'","STATUS_REMOTE":"'$REMOTE_CHECKS_STATUS'"}}'
