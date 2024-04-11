@@ -70,6 +70,7 @@ USAGE
 #conf
 REMOTE_PREFLIGHTS_TEMPLATE="templates/on-prem/helm_preflights_remote.yaml"
 LOCAL_PREFLIGHTS_TEMPLATE="templates/on-prem/helm_preflights_local.yaml"
+PULL_SECRETS_TEMPLATE="templates/image-pull-secrets.yaml"
 PREFLIGHTS_TEMPLATING_OPTION="--set onPrem.preflightsTemplating.enabled=true"
 
 #inputs
@@ -223,7 +224,7 @@ then
 
   if [[ $existingTests -ne 0 ]] || [[ "$FORCE" == "yes" ]] ; then
     echo -e "--- TEMPLATING REMOTE TESTS"
-    helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION -s $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml
+    helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION -s $REMOTE_PREFLIGHTS_TEMPLATE -s $PULL_SECRETS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml
     retcode_remotetpl=$?
     if [ $retcode_remotetpl -ne 0 ];
     then
