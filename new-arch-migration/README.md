@@ -19,6 +19,8 @@ Review and discuss both migration methods and reach out to our [support team](ma
 
 We have updated the names of specific containers in the GitGuardian Kubernetes deployment. This change could impact you if your custom monitoring solutions are closely linked to the specific names of these containers. We highly recommend reviewing the [side-by-side application topology page](./TOPOLOGY.md) to understand the differences between the 2 architectures. This will help you anticipate and adjust your monitoring setups accordingly.
 
+⚠️ In our updated architecture, more pods are deployed compared to the legacy setup, potentially necessitating **additional cluster resources**. Our flexible architecture assigns dedicated services to each key application component, allowing for independent scaling and optimization. Learn more in our [public documentation](https://docs.gitguardian.com/self-hosting/new-architecture#a-more-scalable-architecture).
+
 ## Requirements
 
 GitGuardian provides a set of scripts that require specific tools to be installed on your host to facilitate application migration:
@@ -29,7 +31,7 @@ GitGuardian provides a set of scripts that require specific tools to be installe
 
 You need to be an administrator of the GitGuardian namespace where the application is deployed.
 
-Please ensure you have the latest legacy version installed before upgrading to the new architecture.
+⚠️ Please ensure you have the latest legacy version installed before upgrading to the new architecture.
 
 ⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to give you access to the new architecture, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+migration+external) before upgrading.
 
@@ -52,7 +54,7 @@ Please ensure you have the latest legacy version installed before upgrading to t
     If needed, specify the Kubernetes namespace with `--namespace` (default namespace is used if not specified).
 
 3. You can now migrate GitGuardian to the new architecture using the following command line:
-        
+
     ```bash
     # For Online installation
     ./migrate.sh --namespace <gitguardian_namespace> \
@@ -68,7 +70,7 @@ Please ensure you have the latest legacy version installed before upgrading to t
 
     ```bash
     => Migrate GitGuardian application
-        • Checking for application updates ✓  
+        • Checking for application updates ✓
 
         • There are currently 1 updates available in the Admin Console, ensuring latest is deployed
 
@@ -79,8 +81,10 @@ Please ensure you have the latest legacy version installed before upgrading to t
         • Deploying release: sequence <N>, version YYYY.MM.PATCH
     OK
     ```
-    
+
 Et voilà! You should access to your GitGuardian dashboard.
+
+ℹ️ Please note that a new Ingress/LoadBalancer resource will be created during the migration and will replace the old one, so you will need to manually update any DNS CNAME record pointing to that resource after the migration.
 
 ### Rollback procedure
 
@@ -125,7 +129,7 @@ release "redis" uninstalled
 OK
 
 => Migrate GitGuardian application
-    • Checking for application updates ✓  
+    • Checking for application updates ✓
 
     • There are currently 1 updates available in the Admin Console, ensuring latest is deployed
 
@@ -139,6 +143,51 @@ OK
 
 ℹ️ Please note that the deployment process will continue for a few minutes after the script has ended.
 
+ℹ️ if you prefer to delegate the management of RBAC permissions, you can remove the `--ensure-rbac` flag, in this case, to meet the requirements, the following actions must be performed before running the migration script:
+  - Create the <new_namespace>
+  - Apply the following RBAC permissions on the cluster (remember to replace <new_namespace> placeholders before):
+```yaml
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kotsadm
+  namespace: <new_namespace>
+  labels:
+    kots.io/backup: velero
+    kots.io/kotsadm: "true"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kotsadm-role
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces", "nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kotsadm-rolebinding
+  labels:
+    kots.io/backup: velero
+    kots.io/kotsadm: "true"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kotsadm-role
+subjects:
+  - kind: ServiceAccount
+    name: kotsadm
+    namespace: <new_namespace>
+```
 You should have now access to your GitGuardian dashboard.
 
 ## Blue/green migration with external databases
@@ -158,7 +207,8 @@ At the end of the deployment, depending on how you expose the application (Ingre
     ./bg-migrate.sh \
       --v1-namespace <legacy_namespace> \
       --v2-namespace <new_namespace> \
-      --license-file <v2_license_file> \
+      --ensure-rbac \
+      --license-file <new_license_file> \
       --shared-password "<kots_new_admin_password>" \
       --set "app_hostname=<new_app_hostname>"
 
@@ -166,6 +216,7 @@ At the end of the deployment, depending on how you expose the application (Ingre
     ./bg-migrate.sh \
       --v1-namespace <legacy_namespace> \
       --v2-namespace <new_namespace> \
+      --enseure-rbac \
       --airgap-bundle <new_airgap--bundle-file> \
       --license-file <new_license_file> \
       --shared-password "<kots_new_admin_password>" \
@@ -173,6 +224,9 @@ At the end of the deployment, depending on how you expose the application (Ingre
     ```
 
     ℹ️ The script will perform the following steps:
+    - When `--ensure-rbac` flag is specified:
+      - Create the new namespace.
+      - Create minimal cluster-scoped RBAC permissions for kots.
     - Retrieve the legacy KOTS configuration from the specified legacy namespace.
     - In order to expose the new application alongside the legacy one, you need to update the KOTS configuration that was extracted from legacy and update the application hostname. Here it is done using `--set "app_hostname=<new_app_hostname>"`.
     - Deploy the new application in the specified new namespace (Will create it if not exists).
@@ -180,6 +234,12 @@ At the end of the deployment, depending on how you expose the application (Ingre
     *Expected result:*
 
     ```yaml
+    => Create <v2-namespace> namespace
+    OK
+
+    => Create minimal cluster-scoped RBAC permissions
+    OK
+
     => Retrieve V1 kots configuration
     OK
 
@@ -188,26 +248,28 @@ At the end of the deployment, depending on how you expose the application (Ingre
 
     => Install V2 application
       • Deploying Admin Console
-        • Creating namespace ✓  
-        • Waiting for datastore to be ready ✓  
-      • Waiting for Admin Console to be ready ✓  
-      • Waiting for installation to complete ✓  
+        • Creating namespace ✓
+        • Waiting for datastore to be ready ✓
+      • Waiting for Admin Console to be ready ✓
+      • Waiting for installation to complete ✓
     OK
     ```
+
+
 
 2. Once you are ready to switch the traffic to the new application:
 
     Scale down the legacy application
-        
+
     ```yaml
-    ./scale.sh --namespace <legacy_namespace> \ 
+    ./scale.sh --namespace <legacy_namespace> \
       --v1 \
       --all \
       --replicas 0
     ```
-        
+
     *Expected result:*
-        
+
     ```yaml
     => Retrieve GitGuardian deployments
     OK
@@ -239,9 +301,9 @@ At the end of the deployment, depending on how you expose the application (Ingre
     => Scale deployment.apps/gitguardian-app to 0 replicas
     OK
     ```
-    
+
 3. Update the new application hostname and deploy the new configuration using this command:
-        
+
     ```yaml
     ./update-config.sh --namespace <new_namespace> \
         --set "app_hostname=<new_app_hostname>" \
