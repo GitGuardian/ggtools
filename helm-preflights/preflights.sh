@@ -43,6 +43,9 @@ OPTIONS:
 
     -n NAMESPACE
         Specify the Kubernetes destination namespace
+
+    --version
+        Specify the version of the Helm chart to use (default to latest)   
         
     --local
         Execute only local tests
@@ -71,6 +74,7 @@ PREFLIGHTS_TEMPLATING_OPTION="--set onPrem.preflightsTemplating.enabled=true"
 
 #inputs
 CHART=""
+CHART_VERSION=""
 NAMESPACE=""
 LOCAL_CHECKS="yes"
 REMOTE_CHECKS="yes"
@@ -100,6 +104,11 @@ while (("$#")); do
     NAMESPACE="--namespace $1"
     shift
     ;;
+  --version)
+    shift
+    CHART_VERSION="--version $1"
+    shift
+    ;;    
   --force)
     FORCE="yes"
     shift
@@ -172,7 +181,7 @@ then
   if [[ ! -f "$script_dir/local_preflights.yaml" ]] || [[ "$FORCE" == "yes" ]] ;
   then
     echo -e "--- TEMPLATING LOCAL TESTS"
-    helm template $NAMESPACE $VALUES_FILES $PREFLIGHTS_TEMPLATING_OPTION -s $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml
+    helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION -s $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml
     retcode_localtpl=$?
     if [ $retcode_localtpl -ne 0 ];
     then
@@ -214,7 +223,7 @@ then
 
   if [[ $existingTests -ne 0 ]] || [[ "$FORCE" == "yes" ]] ; then
     echo -e "--- TEMPLATING REMOTE TESTS"
-    helm template $NAMESPACE $VALUES_FILES $PREFLIGHTS_TEMPLATING_OPTION -s $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml
+    helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION -s $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml
     retcode_remotetpl=$?
     if [ $retcode_remotetpl -ne 0 ];
     then
