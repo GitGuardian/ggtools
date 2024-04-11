@@ -19,6 +19,8 @@ Review and discuss both migration methods and reach out to our [support team](ma
 
 We have updated the names of specific containers in the GitGuardian Kubernetes deployment. This change could impact you if your custom monitoring solutions are closely linked to the specific names of these containers. We highly recommend reviewing the [side-by-side application topology page](./TOPOLOGY.md) to understand the differences between the 2 architectures. This will help you anticipate and adjust your monitoring setups accordingly.
 
+⚠️ In our updated architecture, more pods are deployed compared to the legacy setup, potentially necessitating **additional cluster resources**. Our flexible architecture assigns dedicated services to each key application component, allowing for independent scaling and optimization. Learn more in our [public documentation](https://docs.gitguardian.com/self-hosting/new-architecture#a-more-scalable-architecture).
+
 ## Requirements
 
 GitGuardian provides a set of scripts that require specific tools to be installed on your host to facilitate application migration:
