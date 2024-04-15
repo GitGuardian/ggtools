@@ -56,8 +56,8 @@ OPTIONS:
     --remote
         Execute only remote tests
 
-    --force
-        Force retemplating even if preflights have been played before     
+    --reuse
+        Use existing templates if preflights have been played before     
 
     --nosave
         Do not save results in-cluster (not recommended)
@@ -83,7 +83,7 @@ NAMESPACE=""
 LOCAL_CHECKS="yes"
 REMOTE_CHECKS="yes"
 VALUES_FILES=""
-FORCE="no"
+FORCE="yes"
 SAVE="yes"
 INSTALL_PREFLIGHT="no"
 
@@ -113,8 +113,8 @@ while (("$#")); do
     CHART_VERSION="--version $1"
     shift
     ;;    
-  --force)
-    FORCE="yes"
+  --reuse)
+    FORCE="no"
     shift
     ;;
   --install-preflight)

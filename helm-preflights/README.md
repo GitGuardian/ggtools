@@ -32,7 +32,6 @@ chmod +x preflights.sh
 Among all the options, you can:
 - Define several values file
 - Define the namespace
-- Force retemplating (in case of values update)
 - Install `kubectl preflight` plugin
 
 To view all options, run `./preflights.sh --help`.
