@@ -25,6 +25,7 @@ We have updated the names of specific containers in the GitGuardian Kubernetes d
 
 GitGuardian provides a set of scripts that require specific tools to be installed on your host to facilitate application migration:
 
+- [git](https://git-scm.com/downloads)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) (version ≥ 1.27.0)
 - [kubectl kots plugin](https://docs.replicated.com/reference/kots-cli-getting-started#install) (version ≥ 1.107.7)
 - [yq](https://mikefarah.gitbook.io/yq/) (Only for Blue/Green Migration)
@@ -53,7 +54,14 @@ You need to be an administrator of the GitGuardian namespace where the applicati
 
     If needed, specify the Kubernetes namespace with `--namespace` (default namespace is used if not specified).
 
-3. You can now migrate GitGuardian to the new architecture using the following command line:
+3. Clone the ggtool repository.
+
+    ```bash
+    git clone https://github.com/GitGuardian/ggtools.git
+    cd ggtools/new-arch-migration/scripts
+    ```
+
+4. You can now migrate GitGuardian to the new architecture using the following command line:
 
     ```bash
     # For Online installation
@@ -200,7 +208,14 @@ This migration will deploy a new version of GitGuardian in a separate namespace 
 
 At the end of the deployment, depending on how you expose the application (Ingress, LoadBalancer), you will need to switch traffic to the new application.
 
-1. Run the `bg-migrate.sh` script to deploy the new application
+1. Clone the ggtool repository.
+
+    ```bash
+    git clone https://github.com/GitGuardian/ggtools.git
+    cd ggtools/new-arch-migration/scripts
+    ```
+
+2. Run the `bg-migrate.sh` script to deploy the new application
 
     ```bash
     # For online installation
@@ -255,9 +270,7 @@ At the end of the deployment, depending on how you expose the application (Ingre
     OK
     ```
 
-
-
-2. Once you are ready to switch the traffic to the new application:
+3. Once you are ready to switch the traffic to the new application:
 
     Scale down the legacy application
 
@@ -302,7 +315,7 @@ At the end of the deployment, depending on how you expose the application (Ingre
     OK
     ```
 
-3. Update the new application hostname and deploy the new configuration using this command:
+4. Update the new application hostname and deploy the new configuration using this command:
 
     ```yaml
     ./update-config.sh --namespace <new_namespace> \
@@ -314,4 +327,4 @@ At the end of the deployment, depending on how you expose the application (Ingre
 
     You should have now access to your GitGuardian dashboard.
 
-4. Once you've verified that your GitGuardian application is functioning correctly, you may proceed to delete the legacy namespace in your kubernetes cluster. Please be aware that deleting the namespace will prevent any possibility of reverting to the legacy application.
+5. Once you've verified that your GitGuardian application is functioning correctly, you may proceed to delete the legacy namespace in your kubernetes cluster. Please be aware that deleting the namespace will prevent any possibility of reverting to the legacy application.

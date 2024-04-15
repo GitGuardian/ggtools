@@ -4,6 +4,7 @@
 
 GitGuardian provides a set of scripts that require specific tools to be installed on your host to facilitate application migration:
 
+- [git](https://git-scm.com/downloads)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) (version ≥ 1.27.0)
 - [kubectl kots plugin](https://docs.replicated.com/reference/kots-cli-getting-started#install) (version ≥ 1.107.7)
 - [yq](https://mikefarah.gitbook.io/yq/) (Only for Blue/Green Migration)
@@ -26,7 +27,14 @@ You need to be an administrator of the GitGuardian namespace where the applicati
     kubectl get secrets gitguardian-env-variables -o jsonpath='{.data.DJANGO_SECRET_KEY}' | base64 -d
     ```
 
-2. Scale down the GitGuardian app deployment to make the application inaccessible, allowing workers to process remaining tasks.
+2. Clone the ggtool repository.
+
+    ```bash
+    git clone https://github.com/GitGuardian/ggtools.git
+    cd ggtools/new-arch-migration/scripts
+    ```
+
+3. Scale down the GitGuardian app deployment to make the application inaccessible, allowing workers to process remaining tasks.
 
     ```bash
     ./scale.sh --v1 \
@@ -45,7 +53,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
     OK
     ```
 
-3. Verify all asynchronous tasks are completed by running the following command until the expected result is obtained:
+4. Verify all asynchronous tasks are completed by running the following command until the expected result is obtained:
 
     ```bash
     ./inspect-workers.sh --v1 --namespace default
@@ -72,7 +80,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
 
     Each worker should return: `- empty -`
 
-4. Backup the GitGuardian PostgreSQL database.
+5. Backup the GitGuardian PostgreSQL database.
 
     ```bash
     ./backup-db.sh --v1 --namespace default \
@@ -91,7 +99,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
     Backup successfully created at ***pg-dump-gitguardian-v1-20240223_162744.gz***
     ```
 
-5. Migrate GitGuardian to the new architecture with the following command:
+6. Migrate GitGuardian to the new architecture with the following command:
 
     ```bash
     ./migrate.sh --namespace default --deploy
@@ -113,7 +121,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
     OK
     ```
 
-6. Restore the database dump with:
+7. Restore the database dump with:
 
     ```bash
     ./restore-db.sh \

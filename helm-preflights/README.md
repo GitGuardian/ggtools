@@ -23,6 +23,12 @@ It is designed to run similarly to `helm install` command, an example is provide
 
 ## Usage
 
+Download the script on your workstation:
+```bash
+curl -O https://raw.githubusercontent.com/GitGuardian/ggtools/main/preflights-helm/helm-preflights/preflights.sh
+chmod +x preflights.sh 
+```
+
 Among all the options, you can:
 - Define several values file
 - Define the namespace
