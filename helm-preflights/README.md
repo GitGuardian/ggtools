@@ -1,12 +1,24 @@
-# Helm preflights
+# Helm Preflights
 
-The Helm preflights are a set of tests that can be run at any time to ensure your cluster meets GitGuardian's requirements.
+The Helm Preflights are a set of tests that can be run at any time to ensure your cluster meets GitGuardian's requirements.
 
-This folder contains a script (`preflights.sh`) that:
-- Generates tests templates according to the provided values files
-- Runs tests
-- Fetches and displays the results
-- Pushes results inside a Kubernetes secret in your cluster
+This directory contains a script called `preflights.sh` which:
+- Generates tests templates according to the provided values files.
+- Runs tests.
+- Fetches and displays the results.
+- Stores the results in a Kubernetes secret within your cluster.
+
+## Checks
+
+Below is a table detailing the tests conducted by this tool:
+
+| Check                           | Type   | Status          |
+|---------------------------------|--------|-----------------|
+| Required Kubernetes version     | Local  | Pass/Warn/Error |
+| Required PostgreSQL version     | Remote | Pass/Warn/Error |
+| Required PostgreSQL connectivity| Remote | Pass/Warn/Error |
+| Required Redis version          | Remote | Pass/Warn/Error |
+| Required Redis connectivity     | Remote | Pass/Warn/Error |
 
 ## Requirements
 
@@ -23,18 +35,20 @@ It is designed to run similarly to `helm install` command, an example is provide
 
 ## Usage
 
-Download the script on your workstation:
+To download the script to your workstation:
+
 ```bash
 curl -O https://raw.githubusercontent.com/GitGuardian/ggtools/main/preflights-helm/helm-preflights/preflights.sh
 chmod +x preflights.sh 
 ```
 
-Among all the options, you can:
-- Define several values file
-- Define the namespace
-- Install `kubectl preflight` plugin
+Options include:
+- Specifying multiple values files.
+- Setting the namespace.
+- Forcing retemplating in case of values updates.
+- Install `kubectl preflight` plugin.
 
-To view all options, run `./preflights.sh --help`.
+To view all available options, run `./preflights.sh --help`.
 
 ### Example
 
