@@ -12,13 +12,11 @@ This directory contains a script called `preflights.sh` which:
 
 Below is a table detailing the tests conducted by this tool:
 
-| Check                           | Type   | Status          |
-|---------------------------------|--------|-----------------|
-| Required Kubernetes version     | Local  | Pass/Warn/Error |
-| Required PostgreSQL version     | Remote | Pass/Warn/Error |
-| Required PostgreSQL connectivity| Remote | Pass/Warn/Error |
-| Required Redis version          | Remote | Pass/Warn/Error |
-| Required Redis connectivity     | Remote | Pass/Warn/Error |
+| Check                                   | Type   | Status          |
+|-----------------------------------------|--------|-----------------|
+| Required Kubernetes version             | Local  | Pass/Warn/Error |
+| Required PostgreSQL version & connectivity | Remote | Pass/Warn/Error |
+| Required Redis version & connectivity   | Remote | Pass/Warn/Error |
 
 ## Requirements
 
