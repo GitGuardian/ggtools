@@ -8,8 +8,6 @@ This directory contains a script called `preflights.sh` which:
 - Fetches and displays the results.
 - Stores the results in a Kubernetes secret within your cluster.
 
-⚠️ Please note that this feature is currently in beta and does not support PostgreSQL and Redis configurations with TLS enabled.
-
 ## Checks
 
 Below is a table detailing the tests conducted by this tool:
