@@ -1,5 +1,7 @@
 # Helm Preflights
 
+⚠️ This script will work **FROM** GitGuardian version **2024.4.0**.
+
 The Helm Preflights are a set of tests that can be run at any time to ensure your cluster meets GitGuardian's requirements.
 
 This directory contains a script called `preflights.sh` which:
@@ -22,8 +24,6 @@ Below is a table detailing the tests conducted by this tool:
 ## Requirements
 
 The Kubernetes namespace should be the one that will be used for Gitguardian app.
-
-This script will work from GitGuardian version **2024.4.0**.
 
 Additionally, the script requires the following:
 - [helm v3](https://helm.sh/docs/intro/install/)
