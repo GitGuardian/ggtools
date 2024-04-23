@@ -46,7 +46,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
     **Expected result:**
 
     ```bash
-    => Retrieve GitGuardian deployments
+    => Retrieve the GitGuardian app component
     OK
 
     => Scale GitGuardian app component to 0 replicas
@@ -80,7 +80,47 @@ You need to be an administrator of the GitGuardian namespace where the applicati
 
     Each worker should return: `- empty -`
 
-5. Backup the GitGuardian PostgreSQL database.
+5. Scale down workers to free up cpu/memory
+
+    ```bash
+    ./scale.sh --v1 \
+        --namespace default \
+        --component worker \
+        --component scanner \
+        --component long-tasks \
+        --component email \
+        --replicas 0
+    ```
+
+    **Expected result:**
+
+    ```bash
+    => Retrieve the GitGuardian worker component
+    OK
+
+    => Scale GitGuardian worker component to 0 replicas
+    OK
+
+    => Retrieve the GitGuardian scanner component
+    OK
+
+    => Scale GitGuardian scanner component to 0 replicas
+    OK  
+
+    => Retrieve the GitGuardian long-tasks component
+    OK
+
+    => Scale GitGuardian long-tasks component to 0 replicas
+    OK  
+
+    => Retrieve the GitGuardian email component
+    OK
+
+    => Scale GitGuardian email component to 0 replicas
+    OK            
+    ```
+
+6. Backup the GitGuardian PostgreSQL database.
 
     ```bash
     ./backup-db.sh --v1 --namespace default \
@@ -99,7 +139,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
     Backup successfully created at ***pg-dump-gitguardian-v1-20240223_162744.gz***
     ```
 
-6. Migrate GitGuardian to the new architecture with the following command:
+7. Migrate GitGuardian to the new architecture with the following command:
 
     ```bash
     ./migrate.sh --namespace default --deploy
@@ -121,7 +161,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
     OK
     ```
 
-7. Restore the database dump with:
+8. Restore the database dump with:
 
     ```bash
     ./restore-db.sh \
