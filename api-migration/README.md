@@ -7,9 +7,9 @@ The proposed flow would be to leverage the GitGuardian API to manage a proper mi
 
 The switch could be from :
 
-- SaaS ↔ Onprem
-- Onprem ↔ Onprem
-- SaaS ↔ SaaS
+- SaaS <-> Self-Hosted
+- Self-Hosted -> Self-Hosted
+- SaaS -> SaaS
 
 # Pre-requisites:
 
