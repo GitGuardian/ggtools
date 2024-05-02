@@ -37,7 +37,7 @@ It is designed to run similarly to `helm install` command, an example is provide
 To download the script to your workstation:
 
 ```bash
-curl -O https://raw.githubusercontent.com/GitGuardian/ggtools/main/preflights-helm/helm-preflights/preflights.sh
+curl -O https://raw.githubusercontent.com/GitGuardian/ggtools/main/helm-preflights/preflights.sh
 chmod +x preflights.sh 
 ```
 
