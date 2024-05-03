@@ -231,7 +231,7 @@ At the end of the deployment, depending on how you expose the application (Ingre
     ./bg-migrate.sh \
       --v1-namespace <legacy_namespace> \
       --v2-namespace <new_namespace> \
-      --enseure-rbac \
+      --ensure-rbac \
       --airgap-bundle <new_airgap--bundle-file> \
       --license-file <new_license_file> \
       --shared-password "<kots_new_admin_password>" \
