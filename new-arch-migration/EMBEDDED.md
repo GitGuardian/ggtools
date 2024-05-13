@@ -27,7 +27,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
     kubectl get secrets gitguardian-env-variables -o jsonpath='{.data.DJANGO_SECRET_KEY}' | base64 -d
     ```
 
-2. Clone the ggtool repository.
+2. Clone the ggtools repository.
 
     ```bash
     git clone https://github.com/GitGuardian/ggtools.git

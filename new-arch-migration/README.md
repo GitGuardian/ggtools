@@ -56,7 +56,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
 
 3. Configure RBAC permissions on the cluster as per the instructions provided in the [Kubernetes Application RBAC documentation](https://docs.gitguardian.com/self-hosting/installation/installation-existing-cluster#kubernetes-application-rbac) page.
 
-4. Clone the ggtool repository.
+4. Clone the ggtools repository.
 
     ```bash
     git clone https://github.com/GitGuardian/ggtools.git
@@ -210,7 +210,7 @@ This migration will deploy a new version of GitGuardian in a separate namespace 
 
 At the end of the deployment, depending on how you expose the application (Ingress, LoadBalancer), you will need to switch traffic to the new application.
 
-1. Clone the ggtool repository.
+1. Clone the ggtools repository.
 
     ```bash
     git clone https://github.com/GitGuardian/ggtools.git
