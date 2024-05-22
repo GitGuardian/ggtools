@@ -189,7 +189,7 @@ then
   if [[ ! -f "$script_dir/local_preflights.yaml" ]] || [[ "$FORCE" == "yes" ]] ;
   then
     echo -e "--- TEMPLATING LOCAL TESTS"
-    helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION -s $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml
+    helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION -s $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml 2>/dev/null
     retcode_localtpl=$?
     if [ $retcode_localtpl -ne 0 ];
     then
@@ -240,7 +240,7 @@ then
       GLOBAL_RC=1
     else  
       kubectl delete $NAMESPACE cronjob gitguardian-remote-preflights &>/dev/null
-      kubectl apply $NAMESPACE -f $script_dir/remote_preflights.yaml 2>/dev/null
+      kubectl apply $NAMESPACE -f $script_dir/remote_preflights.yaml &>/dev/null
       sleep 2
     fi
     rm -f $script_dir/remote_preflights.yaml
@@ -281,14 +281,17 @@ then
     GLOBAL_OUTPUT+="
 --- RUNNING REMOTE TESTS$output"
     retcode=$(kubectl get pods $pod $NAMESPACE -o 'jsonpath={.status.containerStatuses[0].state.terminated.exitCode}')
+
     if [ $retcode -eq 0 ];
     then
-      echo_pass
-      REMOTE_CHECKS_STATUS="pass"
-    elif [ $retcode -eq 4 ];
-    then
-      echo_warn "At least, one check is in warn status"
-      REMOTE_CHECKS_STATUS="warn"
+      if [[ "$output" =~ "WARN" ]];
+      then
+        echo_warn "At least, one check is in warn status"
+        REMOTE_CHECKS_STATUS="warn"
+      else
+        echo_pass
+        REMOTE_CHECKS_STATUS="pass"
+      fi
     else
       echo_ko
       REMOTE_CHECKS_STATUS="error"
