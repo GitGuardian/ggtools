@@ -172,8 +172,33 @@ then
   exit 1
 fi
 
+if [ -n "$PULL_SECRETS_OPTION" ] && [[ "$FORCE" == "yes" ]];
+then
+  echo -e "--- TEMPLATING PULL SECRETS"
+  helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PULL_SECRETS_OPTION $CHART > $script_dir/local_secrets.yaml 2>/dev/null
+  retcode_secret=$?
+  if [ $retcode_secret -ne 0 ];
+  then
+    echo_error "Unable to template pull secrets"
+    LOCAL_CHECKS_STATUS="error"
+    GLOBAL_RC=1
+  else
+    kubectl $NAMESPACE apply -f $script_dir/local_secrets.yaml &>/dev/null
+    retcode_secret=$?
+    if [ $retcode_secret -ne 0 ];
+    then
+      echo_error "Unable to apply pull secrets"
+      LOCAL_CHECKS_STATUS="error"
+      GLOBAL_RC=1
+    fi 
+  fi
+  rm -f $script_dir/local_secrets.yaml
+fi
 
-if [[ "$LOCAL_CHECKS" == "yes" ]];
+PULL_SECRETS_OK=$( ([ -z ${retcode_secret+x} ] || [ $retcode_secret -eq 0 ]) && echo yes || echo no)
+
+
+if [[ "$LOCAL_CHECKS" == "yes" ]] && [[ "$PULL_SECRETS_OK" == "yes" ]];
 then
   if [[ ! `kubectl preflight version 2>/dev/null` ]];
   then
@@ -199,7 +224,6 @@ then
       GLOBAL_RC=1
     fi
   fi
-
   if [ -z ${retcode_localtpl+x} ] || [ $retcode_localtpl -eq 0 ];
   then
     echo -e "--- RUNNING LOCAL TESTS"
@@ -223,7 +247,7 @@ then
   fi
 fi
 
-if [[ "$REMOTE_CHECKS" == "yes" ]];
+if [[ "$REMOTE_CHECKS" == "yes" ]] && [[ "$PULL_SECRETS_OK" == "yes" ]];
 then
 
   kubectl get cronjob gitguardian-remote-preflights $NAMESPACE &>/dev/null
@@ -231,7 +255,7 @@ then
 
   if [[ $existingTests -ne 0 ]] || [[ "$FORCE" == "yes" ]] ; then
     echo -e "--- TEMPLATING REMOTE TESTS"
-    helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION -s $REMOTE_PREFLIGHTS_TEMPLATE $PULL_SECRETS_OPTION $CHART > $script_dir/remote_preflights.yaml
+    helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION -s $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml 2>/dev/null
     retcode_remotetpl=$?
     if [ $retcode_remotetpl -ne 0 ];
     then
