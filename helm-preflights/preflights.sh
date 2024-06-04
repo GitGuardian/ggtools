@@ -1,18 +1,21 @@
 #!/bin/bash
 
+# set -x
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 function echo_pass() {
   echo -e "\033[1;32mPASS\033[0m"
 }
 
-function echo_ko() {
+function exit_ko() {
   echo -e "\033[1;31mKO\033[0m "
+  exit 1
 }
 
-function echo_error() {
+function exit_error() {
   echo -en "\033[1;31m[ERROR]\033[0m " >&2
   echo $@ >&2
+  exit 1
 }
 
 function echo_warn() {
@@ -23,6 +26,28 @@ function echo_warn() {
 function install_preflight() {
   echo -e "--- INSTALLING PREFLIGHT PLUGIN"
   curl --silent https://krew.sh/preflight | bash >$script_dir/preflights_install.logs 2>&1
+}
+
+function write_results() {
+  if [[ "$SAVE" == "yes" ]];
+  then
+    echo -e "--- SAVING RESULTS TO SECRET gitguardian-preflights-results"
+    #Used to preserve formatting
+    cat <<K8SSECRET > $script_dir/preflights-output
+$GLOBAL_OUTPUT
+K8SSECRET
+
+    kubectl create secret generic gitguardian-preflights-results \
+    --save-config=true \
+    --dry-run=client \
+    --from-file="$script_dir/preflights-output" \
+    -o yaml | \
+    kubectl apply $NAMESPACE -f -
+    rm -f $script_dir/preflights-output
+
+    #add this for telemetry usage later in backend
+    kubectl patch secrets gitguardian-preflights-results $NAMESPACE -p='{"stringData":{"STATUS_LOCAL":"'$LOCAL_CHECKS_STATUS'","STATUS_REMOTE":"'$REMOTE_CHECKS_STATUS'"}}'
+  fi
 }
 
 function usage() {
@@ -70,11 +95,14 @@ OPTIONS:
 USAGE
 }
 
+trap "write_results" EXIT
+
 #conf
-REMOTE_PREFLIGHTS_TEMPLATE="templates/on-prem/helm_preflights_remote.yaml"
-LOCAL_PREFLIGHTS_TEMPLATE="templates/on-prem/helm_preflights_local.yaml"
+REMOTE_PREFLIGHTS_TEMPLATE="-s templates/on-prem/helm_preflights_remote.yaml"
+LOCAL_PREFLIGHTS_TEMPLATE="-s templates/on-prem/helm_preflights_local.yaml"
 PULL_SECRETS_OPTION="-s templates/image-pull-secrets.yaml"
 PREFLIGHTS_TEMPLATING_OPTION="--set onPrem.preflightsTemplating.enabled=true"
+REMOTE_CRONJOB_NAME="gitguardian-remote-preflights"
 
 #inputs
 CHART=""
@@ -89,10 +117,10 @@ INSTALL_PREFLIGHT="no"
 
 #outputs
 GLOBAL_OUTPUT=""
-GLOBAL_RC=0
 LOCAL_CHECKS_STATUS="empty"
 REMOTE_CHECKS_STATUS="empty"
 
+#input parsing
 while (("$#")); do
   case "$1" in
   --local)
@@ -142,8 +170,7 @@ while (("$#")); do
     if [ -n "$CHART" ];
     then
       usage
-      echo_error "You can have only one chart path, please check your command"
-      exit 1
+      exit_error "You can have only one chart path, please check your command"
     fi      
     CHART=$1
     shift
@@ -151,36 +178,47 @@ while (("$#")); do
   esac
 done
 
-
+#Checks
 if [[ "$LOCAL_CHECKS" == "no" ]] && [[ "$REMOTE_CHECKS" == "no" ]];
 then
     usage
-    echo_error "You selected no tests, remove --local and --remote to run all tests"
-    exit 1
+    exit_error "You selected no tests, remove --local and --remote to run all tests"
 fi
 
 if [[ -z "$CHART" ]] && [[ "$LOCAL_CHECKS" == "yes" ]];
 then
     usage
-    echo_error "You must provide a chart (path or OCI uri)"
-    exit 1    
+    exit_error "You must provide a chart (path or OCI uri)"
 fi
 
-if [[ ! `which kubectl helm` ]];
+if ! which kubectl helm &>/dev/null;
 then
-  echo_error "You need helm and kubectl in your PATH" 
-  exit 1
+  exit_error "You need helm and kubectl in your PATH" 
 fi
 
+#Main
+if [ -n "$PULL_SECRETS_OPTION" ] && [[ "$FORCE" == "yes" ]];
+then
+  echo -e "--- TEMPLATING PULL SECRETS"
+  if ! helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PULL_SECRETS_OPTION $CHART > $script_dir/local_secrets.yaml 2>/dev/null;
+  then
+    LOCAL_CHECKS_STATUS="error"
+    exit_error "Unable to template pull secrets"
+  elif ! kubectl $NAMESPACE apply -f $script_dir/local_secrets.yaml &>/dev/null;
+  then
+    LOCAL_CHECKS_STATUS="error"
+    exit_error "Unable to apply pull secrets"
+  fi
+  rm -f $script_dir/local_secrets.yaml
+fi
 
 if [[ "$LOCAL_CHECKS" == "yes" ]];
 then
-  if [[ ! `kubectl preflight version 2>/dev/null` ]];
+  if ! kubectl preflight version &>/dev/null;
   then
     if [[ "$INSTALL_PREFLIGHT" == "no" ]];
     then
-      echo_error "You need kubectl preflight plugin to run local tests, use --install-preflight to get it" 
-      exit 1
+      exit_error "You need kubectl preflight plugin to run local tests, use --install-preflight to get it" 
     else
       install_preflight
     fi
@@ -189,136 +227,98 @@ then
   if [[ ! -f "$script_dir/local_preflights.yaml" ]] || [[ "$FORCE" == "yes" ]] ;
   then
     echo -e "--- TEMPLATING LOCAL TESTS"
-    helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION -s $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml 2>/dev/null
-    retcode_localtpl=$?
-    if [ $retcode_localtpl -ne 0 ];
+    if ! helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml 2>/dev/null;
     then
       rm -f $script_dir/local_preflights.yaml
-      echo_error "Unable to template local preflights"
       LOCAL_CHECKS_STATUS="error"
-      GLOBAL_RC=1
+      exit_error "Unable to template local preflights"
     fi
   fi
 
-  if [ -z ${retcode_localtpl+x} ] || [ $retcode_localtpl -eq 0 ];
+  echo -e "--- RUNNING LOCAL TESTS"
+  output=`kubectl preflight $NAMESPACE --interactive=false $script_dir/local_preflights.yaml 2>/dev/null`
+  retcode=$?
+  echo -e "$output"
+  GLOBAL_OUTPUT+="--- RUNNING LOCAL TESTS$output"
+  if [ $retcode -eq 0 ];
   then
-    echo -e "--- RUNNING LOCAL TESTS"
-    output=`kubectl preflight $NAMESPACE --interactive=false $script_dir/local_preflights.yaml 2>/dev/null`
-    retcode=$?
-    echo -e "$output"
-    GLOBAL_OUTPUT+="--- RUNNING LOCAL TESTS$output"
-    if [ $retcode -eq 0 ];
-    then
-      echo_pass
-      LOCAL_CHECKS_STATUS="pass"
-    elif [ $retcode -eq 4 ];
-    then
-      echo_warn "At least, one check is in warn status"
-      LOCAL_CHECKS_STATUS="warn"
-    else
-      echo_ko
-      LOCAL_CHECKS_STATUS="error"
-      GLOBAL_RC=1
-    fi
+    LOCAL_CHECKS_STATUS="pass"
+    echo_pass
+  elif [ $retcode -eq 4 ];
+  then
+    LOCAL_CHECKS_STATUS="warn"
+    echo_warn "At least, one check is in warn status"
+  else
+    LOCAL_CHECKS_STATUS="error"
+    exit_ko
   fi
 fi
 
 if [[ "$REMOTE_CHECKS" == "yes" ]];
 then
-
-  kubectl get cronjob gitguardian-remote-preflights $NAMESPACE &>/dev/null
-  existingTests=$?
-
-  if [[ $existingTests -ne 0 ]] || [[ "$FORCE" == "yes" ]] ; then
+  if ! `kubectl get cronjob $REMOTE_CRONJOB_NAME $NAMESPACE &>/dev/null` || [[ "$FORCE" == "yes" ]] ; then
     echo -e "--- TEMPLATING REMOTE TESTS"
-    helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION -s $REMOTE_PREFLIGHTS_TEMPLATE $PULL_SECRETS_OPTION $CHART > $script_dir/remote_preflights.yaml
-    retcode_remotetpl=$?
-    if [ $retcode_remotetpl -ne 0 ];
+    if ! helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml 2>/dev/null;
     then
-      echo_error "Unable to template remote preflights"
       REMOTE_CHECKS_STATUS="error"
-      GLOBAL_RC=1
+      exit_error "Unable to template remote preflights"
     else  
-      kubectl delete $NAMESPACE cronjob gitguardian-remote-preflights &>/dev/null
-      kubectl apply $NAMESPACE -f $script_dir/remote_preflights.yaml &>/dev/null
+      kubectl delete $NAMESPACE cronjob $REMOTE_CRONJOB_NAME &>/dev/null
+      if ! kubectl apply $NAMESPACE -f $script_dir/remote_preflights.yaml &>/dev/null;
+      then
+        REMOTE_CHECKS_STATUS="error"
+        exit_error "Unable to apply remote preflights"
+      fi
       sleep 2
     fi
     rm -f $script_dir/remote_preflights.yaml
   fi
 
-  if [ -z ${retcode_remotetpl+x} ] || [ $retcode_remotetpl -eq 0 ];
-  then
+  echo -e "--- RUNNING REMOTE TESTS"
 
-    echo -e "--- RUNNING REMOTE TESTS"
+  #Start job
+  kubectl create job $NAMESPACE --from=cronjob/$REMOTE_CRONJOB_NAME $REMOTE_CRONJOB_NAME-`mktemp -u XXXXX | tr '[:upper:]' '[:lower:]'` &>/dev/null
+  sleep 5
+  pod=$(kubectl get pods $NAMESPACE -l gitguardian=remote-preflight --sort-by=.metadata.creationTimestamp -o 'jsonpath={.items[-1].metadata.name}')
+  
+  echo -e "If this step is too long, please check the pod is running in the accurate namespace"
+  while true; do
+    # Check the status of the pod
+    pod_status=$(kubectl get pod $pod $NAMESPACE -o jsonpath='{.status.phase}')
 
-    #Start job
-    kubectl create job $NAMESPACE --from=cronjob/gitguardian-remote-preflights gitguardian-remote-preflights-`mktemp -u XXXXX | tr '[:upper:]' '[:lower:]'` &>/dev/null
-    sleep 5
-    pod=$(kubectl get pods $NAMESPACE -l gitguardian=remote-preflight --sort-by=.metadata.creationTimestamp -o 'jsonpath={.items[-1].metadata.name}')
-    
-    echo -e "If this step is too long, please check the pod is running in the accurate namespace"
-    while true; do
-      # Check the status of the pod
-      pod_status=$(kubectl get pod $pod $NAMESPACE -o jsonpath='{.status.phase}')
-
-      # If pod_status is not empty, the pod has reached a terminal state
-      if [ -n "$pod_status" ]; then
-          case "$pod_status" in
-              "Succeeded")
-                  break
-                  ;;
-              "Failed")
-                  break
-                  ;;                                        
-          esac
-      fi
-      sleep 5
-    done
-
-    # Print preflights output
-    output=`kubectl logs $NAMESPACE $pod`
-    echo -e "$output"
-    GLOBAL_OUTPUT+="
---- RUNNING REMOTE TESTS$output"
-    retcode=$(kubectl get pods $pod $NAMESPACE -o 'jsonpath={.status.containerStatuses[0].state.terminated.exitCode}')
-
-    if [ $retcode -eq 0 ];
-    then
-      if [[ "$output" =~ "WARN" ]];
-      then
-        echo_warn "At least, one check is in warn status"
-        REMOTE_CHECKS_STATUS="warn"
-      else
-        echo_pass
-        REMOTE_CHECKS_STATUS="pass"
-      fi
-    else
-      echo_ko
-      REMOTE_CHECKS_STATUS="error"
-      GLOBAL_RC=1
+    # If pod_status is not empty, the pod has reached a terminal state
+    if [ -n "$pod_status" ]; then
+        case "$pod_status" in
+            "Succeeded")
+                break
+                ;;
+            "Failed")
+                break
+                ;;                                        
+        esac
     fi
+    sleep 5
+  done
+
+  # Print preflights output
+  output=`kubectl logs $NAMESPACE $pod`
+  echo -e "$output"
+  GLOBAL_OUTPUT+="
+--- RUNNING REMOTE TESTS$output"
+  retcode=$(kubectl get pods $pod $NAMESPACE -o 'jsonpath={.status.containerStatuses[0].state.terminated.exitCode}')
+
+  if [ $retcode -eq 0 ];
+  then
+    if [[ "$output" =~ "WARN" ]];
+    then
+      REMOTE_CHECKS_STATUS="warn"
+      echo_warn "At least, one check is in warn status"
+    else
+      REMOTE_CHECKS_STATUS="pass"
+      echo_pass
+    fi
+  else
+    REMOTE_CHECKS_STATUS="error"
+    exit_ko
   fi
 fi
-
-if [[ "$SAVE" == "yes" ]];
-then
-  echo -e "--- SAVING RESULTS TO SECRET gitguardian-preflights-results"
-  #Used to preserve formatting
-  cat <<K8SSECRET > $script_dir/preflights-output
-$GLOBAL_OUTPUT
-K8SSECRET
-
-  kubectl create secret generic gitguardian-preflights-results \
-  --save-config=true \
-  --dry-run=client \
-  --from-file="$script_dir/preflights-output" \
-  -o yaml | \
-  kubectl apply $NAMESPACE -f -
-  rm -f $script_dir/preflights-output
-
-  #add this for telemetry usage later in backend
-  kubectl patch secrets gitguardian-preflights-results $NAMESPACE -p='{"stringData":{"STATUS_LOCAL":"'$LOCAL_CHECKS_STATUS'","STATUS_REMOTE":"'$REMOTE_CHECKS_STATUS'"}}'
-fi
-
-exit $GLOBAL_RC
-
