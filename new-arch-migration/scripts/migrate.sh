@@ -93,7 +93,22 @@ OPTIONS:
         Specify the kubernetes namespace
 
     --airgap-bundle <string>
-        Path to the application airgap bundle where application images and metadata will be loaded from
+        Path to the application airgap bundle where application images and metadata will be loaded from  (airgap only).
+
+    --kotsadm-registry <string>
+        Registry host where images will be pushed before the migration (airgap only).
+
+    --kotsadm-namespace <string>
+        Registry namespace in which images will be pushed (airgap only).
+
+    --registry-username <string>
+        Username to use to authenticate with the application registry (airgap only).
+
+    --registry-password <string>
+        Password to use to authenticate with the application registry (airgap only).
+
+    --disable-image-push
+        Disable images from being pushed to private registry (airgap only).
 
     --deploy-version-label <string>
         Specify the version to deploy
@@ -124,11 +139,11 @@ while (("$#")); do
     KUBECTL_ARGS="${KUBECTL_ARGS} $1=$2"
     shift 2
     ;;
-  --airgap-bundle | --deploy-version-label)
+  --airgap-bundle | --deploy-version-label | --kotsadm-registry | --kotsadm-namespace | --registry-username | --registry-password)
     KOTS_ARGS="${KOTS_ARGS} $1=$2"
     shift 2
     ;;
-  --skip-preflights | --deploy)
+  --skip-preflights | --deploy | --disable-image-push)
     KOTS_ARGS="${KOTS_ARGS} $1"
     shift
     ;;

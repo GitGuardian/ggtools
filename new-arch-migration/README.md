@@ -42,7 +42,10 @@ You need to be an administrator of the GitGuardian namespace where the applicati
 
 ⚠️ This migration will require some downtime, which may take up to one hour.
 
-ℹ️ For airgap installation, first, download the airgap bundle file from your download portal.
+ℹ️ For airgap installation, you will need to:
+
+- Upload the new license provided by GitGuardian from the KOTS admin console.
+- Download the airgap bundle file from your download portal.
 
 1. To begin with, please create a backup of your GitGuardian's external PostgreSQL database.
 
@@ -73,6 +76,9 @@ You need to be an administrator of the GitGuardian namespace where the applicati
     # For Airgap installation
     ./migrate.sh --namespace <gitguardian_namespace> \
     --airgap-bundle <new_arch-version-airgap--bundle-file> \
+    --kotsadm-registry <registry_host> \
+    --registry-username <username> \
+    --registry-password <password> \
     --deploy
     ```
 
