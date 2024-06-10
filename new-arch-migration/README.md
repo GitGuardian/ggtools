@@ -27,12 +27,14 @@ GitGuardian provides a set of scripts that require specific tools to be installe
 
 - [git](https://git-scm.com/downloads)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) (version ≥ 1.27.0)
-- [kubectl kots plugin](https://docs.replicated.com/reference/kots-cli-getting-started#install) (version ≥ 1.107.7)
+- [kubectl kots plugin](https://docs.replicated.com/reference/kots-cli-getting-started#install) (version ≥ 1.109.12)
 - [yq](https://mikefarah.gitbook.io/yq/) (Only for Blue/Green Migration)
 
 You need to be an administrator of the GitGuardian namespace where the application is deployed.
 
 ⚠️ Please ensure you have the latest legacy version installed before upgrading to the new architecture.
+
+⚠️ Please [upgrade KOTS](https://docs.gitguardian.com/self-hosting/management/infrastructure-management/upgrade#upgrading-kots) on your cluster to the latest version ≥ 1.109.12
 
 ⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to give you access to the new architecture, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+migration+external) before upgrading.
 
