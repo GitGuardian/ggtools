@@ -101,7 +101,7 @@ trap "write_results" EXIT
 REMOTE_PREFLIGHTS_TEMPLATE="-s templates/on-prem/helm_preflights_remote.yaml"
 LOCAL_PREFLIGHTS_TEMPLATE="-s templates/on-prem/helm_preflights_local.yaml"
 PULL_SECRETS_OPTION="-s templates/image-pull-secrets.yaml"
-PREFLIGHTS_TEMPLATING_OPTION="--set onPrem.preflightsTemplating.enabled=true"
+PREFLIGHTS_TEMPLATING_OPTION="--dry-run=server --set onPrem.preflightsTemplating.enabled=true"
 REMOTE_CRONJOB_NAME="gitguardian-remote-preflights"
 
 #inputs
