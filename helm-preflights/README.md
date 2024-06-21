@@ -18,6 +18,7 @@ Below is a table detailing the tests conducted by this tool:
 |-----------------------------------------|--------|-----------------|--------------
 | Required Kubernetes version             | Local  | Pass/Warn/Error | 2024.4.0
 | Custom CA certificate validity          | Local  | Pass/Error | 2024.5.0
+| Existing secret presence                | Local  | Pass/Error | 2024.6.0
 | Required PostgreSQL version & connectivity | Remote | Pass/Warn/Error | 2024.4.0
 | Required Redis version & connectivity   | Remote | Pass/Warn/Error | 2024.4.0
 
@@ -38,7 +39,7 @@ To download the script to your workstation:
 
 ```bash
 curl -O https://raw.githubusercontent.com/GitGuardian/ggtools/main/helm-preflights/preflights.sh
-chmod +x preflights.sh 
+chmod +x preflights.sh
 ```
 
 Options include:
@@ -50,9 +51,18 @@ To view all available options, run `./preflights.sh --help`.
 
 ### Example
 
+#### Use an OCI chart
 ```bash
 ./preflights.sh \
 -n <namespace> \
 -f local-values.yaml \
 oci://registry.replicated.com/gitguardian/gitguardian
+```
+
+#### Use a local chart (Airgap mode)
+```bash
+./preflights.sh \
+-n <namespace> \
+-f local-values.yaml \
+gitguardian-<version>.tgz
 ```
