@@ -27,12 +27,14 @@ GitGuardian provides a set of scripts that require specific tools to be installe
 
 - [git](https://git-scm.com/downloads)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) (version ≥ 1.27.0)
-- [kubectl kots plugin](https://docs.replicated.com/reference/kots-cli-getting-started#install) (version ≥ 1.107.7)
+- [kubectl kots plugin](https://docs.replicated.com/reference/kots-cli-getting-started#install) (version ≥ 1.109.14)
 - [yq](https://mikefarah.gitbook.io/yq/) (Only for Blue/Green Migration)
 
 You need to be an administrator of the GitGuardian namespace where the application is deployed.
 
 ⚠️ Please ensure you have the latest legacy version installed before upgrading to the new architecture.
+
+⚠️ Please [upgrade KOTS](https://docs.gitguardian.com/self-hosting/management/infrastructure-management/upgrade#upgrading-kots) on your cluster to the latest version ≥ 1.109.14
 
 ⚠️ The GitGuardian team needs to update your license information (Channel switching from `prod` to `stable`) to give you access to the new architecture, so you need to [sync with them](?subject=Migration+New+Architecture+in+place+migration+external) before upgrading.
 
@@ -42,7 +44,10 @@ You need to be an administrator of the GitGuardian namespace where the applicati
 
 ⚠️ This migration will require some downtime, which may take up to one hour.
 
-ℹ️ For airgap installation, first, download the airgap bundle file from your download portal.
+ℹ️ For airgap installation, you will need to:
+
+- Upload the new license provided by GitGuardian from the KOTS admin console.
+- Download the airgap bundle file from your download portal.
 
 1. To begin with, please create a backup of your GitGuardian's external PostgreSQL database.
 
@@ -73,6 +78,9 @@ You need to be an administrator of the GitGuardian namespace where the applicati
     # For Airgap installation
     ./migrate.sh --namespace <gitguardian_namespace> \
     --airgap-bundle <new_arch-version-airgap--bundle-file> \
+    --kotsadm-registry <registry_host> \
+    --registry-username <username> \
+    --registry-password <password> \
     --deploy
     ```
 
