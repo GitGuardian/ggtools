@@ -167,10 +167,11 @@ trap 'exit 1' ERR
 
 echo_step "Retrieve PostgreSQL pod"
 pod=$(kubectl $KUBECTL_ARGS get pod \
+  --field-selector="status.phase=Running" \
   --selector="$POSTGRES_POD_SELECTOR" \
   --output=name 2>$ERROR_LOG_FILE | head -1)
 if [[ -z "$pod" ]]; then
-  echo "PostgreSQL pod not found" >$ERROR_LOG_FILE
+  echo "No running PostgreSQL pod found" >$ERROR_LOG_FILE
   exit 1
 fi
 echo_ok
