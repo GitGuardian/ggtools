@@ -103,7 +103,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
 Et voilà! You should access to your GitGuardian dashboard.
 
 ℹ️ Please note that a new Ingress/LoadBalancer resource will be created during the migration and will replace the old one, so you will need to manually update any DNS CNAME record pointing to that resource after the migration.
-ℹ️ If using an OpenShift route, the target service will need to be modified from `gitguardian` to `nginx` (`oc patch route/route-name --type merge -p '{"spec": {"to": {"name": "nginx"}}}'`
+ℹ️ If using an OpenShift route, the target service will need to be modified from `gitguardian` to `nginx` (`oc patch route/route-name --type merge -p '{"spec": {"to": {"name": "nginx"}}}'`).
 
 ### Rollback procedure
 
