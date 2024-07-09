@@ -214,7 +214,7 @@ if [[ "$FORCE" == "true" ]] || [[ "$status" == "completed" ]]; then
       done
     echo_ok
 
-    echo_step "Waiting for all GitGuradian pods to be deleted"
+    echo_step "Waiting for all GitGuardian pods to be deleted"
       for deployment in "${deployments[@]}"; do
         kubectl $KUBECTL_ARGS \
           wait --for=delete pod \
@@ -290,7 +290,7 @@ else
   echo
 fi
 
-echo_step "Migrate GitGuardan database"
+echo_step "Migrate GitGuardian database"
 # get internal-api pod
 pod=$(kubectl $KUBECTL_ARGS get pod \
   --field-selector="status.phase=Running" \
