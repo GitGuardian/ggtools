@@ -6,7 +6,7 @@ In order to perform the update, it is necessary to first create a backup of the 
 
 ## Upgrade procedure
 
-### Clone ggotools repository
+### Clone ggtools repository
 
 ```shell
 git clone https://github.com/GitGuardian/ggtools.git
@@ -36,11 +36,11 @@ The script will perform the following steps:
 
 From the KOTS admin console you can now update the GitGuardian application.
 
-:vertical_traffic_light: A preflight check called `PostgreSQL 16 Upgrade` will ensure that the backup was executed correctly by checking the configMap `postgresql-bakcup`.
+:vertical_traffic_light: A preflight check called `PostgreSQL 16 Upgrade` will ensure that the backup was executed correctly by checking the configMap `postgresql-backup`.
 
-### Restore PostgreSQL backuped data
+### Restore PostgreSQL data
 
-Once, the applications update has succesfully completed, you can restore the data using the `restore.sh` script:
+Once the application update has successfully completed, you can restore the data using the `restore.sh` script:
 
 ```shell
 ./restore.sh --namespace <gitguardian_namespace> --input </path/to/pg_dump.sql.gz>
