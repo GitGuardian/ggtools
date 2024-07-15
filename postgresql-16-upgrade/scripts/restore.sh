@@ -191,9 +191,11 @@ if [[ "$FORCE" == "true" ]] || [[ "$status" == "completed" ]]; then
   echo_ok
 
   deployments=()
-  readarray -t deployments < <(kubectl $KUBECTL_ARGS get deployment \
-    --selector="kots.io/app-slug=${REPLICATED_APP}, app.kubernetes.io/name=${REPLICATED_APP}" \
-    --output=name 2>$ERROR_LOG_FILE)
+  while IFS= read -r line; do
+      deployments+=("$line")
+  done < <(kubectl $KUBECTL_ARGS get deployment \
+      --selector="kots.io/app-slug=${REPLICATED_APP}, app.kubernetes.io/name=${REPLICATED_APP}" \
+      --output=name 2>$ERROR_LOG_FILE)
 
   if [[ "${#deployments[@]}" -gt 0 ]]; then
     echo_step "Scale down GitGuardian deployments"
