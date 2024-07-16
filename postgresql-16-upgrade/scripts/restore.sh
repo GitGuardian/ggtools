@@ -244,7 +244,7 @@ if [[ "$FORCE" == "true" ]] || [[ "$status" == "completed" ]]; then
   gunzip -c ${INPUT_FILE} | \
     kubectl $KUBECTL_ARGS \
       exec -i $pod -- \
-      bash -c "$postgres_restore_cmd" >/dev/null 2>$ERROR_LOG_FILE
+      bash -c "set -ueo pipefail ; $postgres_restore_cmd" >/dev/null 2>$ERROR_LOG_FILE
   if [[ -s "$ERROR_LOG_FILE" ]]; then
     exit 1
   fi

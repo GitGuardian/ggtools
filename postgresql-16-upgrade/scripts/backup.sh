@@ -177,7 +177,7 @@ echo_step "Create a backup of the GitGuardian database"
 postgres_backup_cmd="PGPASSWORD=\$POSTGRES_POSTGRES_PASSWORD pg_dump -U postgres -d \$POSTGRES_DATABASE --create --clean --if-exists | gzip"
 kubectl $KUBECTL_ARGS \
   exec --quiet $pod -- \
-  sh -c "$postgres_backup_cmd" >"$OUTPUT_FILE" 2>$ERROR_LOG_FILE
+  bash -c "set -ueo pipefail ; $postgres_backup_cmd" >"$OUTPUT_FILE" 2>$ERROR_LOG_FILE
 if [[ -s "$ERROR_LOG_FILE" ]]; then
   exit 1
 fi
