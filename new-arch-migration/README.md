@@ -77,7 +77,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
 
     # For Airgap installation
     ./migrate.sh --namespace <gitguardian_namespace> \
-    --airgap-bundle <new_arch-version-airgap--bundle-file> \
+    --airgap-bundle <new_arch_version_airgap_bundle_file> \
     --kotsadm-registry <registry_host> \
     --registry-username <username> \
     --registry-password <password> \
@@ -103,6 +103,7 @@ You need to be an administrator of the GitGuardian namespace where the applicati
 Et voilà! You should access to your GitGuardian dashboard.
 
 ℹ️ Please note that a new Ingress/LoadBalancer resource will be created during the migration and will replace the old one, so you will need to manually update any DNS CNAME record pointing to that resource after the migration.
+ℹ️ If using an OpenShift route, the target service will need to be modified from `gitguardian` to `nginx` (`oc patch route/route-name --type merge -p '{"spec": {"to": {"name": "nginx"}}}'`).
 
 ### Rollback procedure
 
@@ -117,9 +118,12 @@ Once the GitGuardian team has updated your license, you can rollback GitGuardian
 ./migrate.sh --namespace <gitguardian_namespace> \
 --deploy
 
-# For Airgap installation
+# For Airgap installation (make sure to download the old version airgap bundle file first)
 ./migrate.sh --namespace <gitguardian_namespace> \
---airgap-bundle <new_airgap--bundle-file> \
+--airgap-bundle <old_arch_version_airgap_bundle_file> \
+--kotsadm-registry <registry_host> \
+--registry-username <username> \
+--registry-password <password> \
 --deploy
 ```
 
@@ -216,7 +220,7 @@ You should have now access to your GitGuardian dashboard.
 
 This migration will deploy a new version of GitGuardian in a separate namespace in the same existing cluster, alongside the current namespace containing the legacy GitGuardian application, so that this will prevent any downtime during the deployment of the new application. This is not possible to do the blue/green migration in the same namespace. The two versions of the application will use the same external databases.
 
-At the end of the deployment, depending on how you expose the application (Ingress, LoadBalancer), you will need to switch traffic to the new application.
+At the end of the deployment, depending on how you expose the application (Ingress, LoadBalancer), you will need to switch traffic to the new application. The blue/green migration is not supported for airgap installations.
 
 1. Clone the ggtools repository.
 
@@ -230,7 +234,6 @@ At the end of the deployment, depending on how you expose the application (Ingre
 3. Run the `bg-migrate.sh` script to deploy the new application
 
     ```bash
-    # For online installation
     ./bg-migrate.sh \
       --v1-namespace <legacy_namespace> \
       --v2-namespace <new_namespace> \
@@ -238,17 +241,6 @@ At the end of the deployment, depending on how you expose the application (Ingre
       --license-file <new_license_file> \
       --shared-password "<kots_new_admin_password>" \
       --set "app_hostname=<new_app_hostname>"
-
-    # For airgap installation
-    ./bg-migrate.sh \
-      --v1-namespace <legacy_namespace> \
-      --v2-namespace <new_namespace> \
-      --ensure-rbac \
-      --airgap-bundle <new_airgap--bundle-file> \
-      --license-file <new_license_file> \
-      --shared-password "<kots_new_admin_password>" \
-      --set "app_hostname=<new_app_hostname>"
-    ```
 
     ℹ️ The script will perform the following steps:
     - When `--ensure-rbac` flag is specified:

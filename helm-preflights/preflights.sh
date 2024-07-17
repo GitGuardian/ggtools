@@ -19,7 +19,7 @@ function exit_error() {
 }
 
 function echo_warn() {
-  echo -en "\033[1;32m[WARN]\033[0m "
+  echo -en "\033[38;2;255;165;0m[WARN]\033[0m"
   echo $@
 }
 
@@ -48,6 +48,34 @@ K8SSECRET
     #add this for telemetry usage later in backend
     kubectl patch secrets gitguardian-preflights-results $NAMESPACE -p='{"stringData":{"STATUS_LOCAL":"'$LOCAL_CHECKS_STATUS'","STATUS_REMOTE":"'$REMOTE_CHECKS_STATUS'"}}'
   fi
+}
+
+function run_hide_output() {
+  local cmd="$1"
+  local flag="$2"
+
+  if [[ "$DEBUG_MODE" == "yes" ]];
+  then
+    flag="none"
+  fi
+
+  case "$flag" in
+    stderr)
+      eval "$cmd 2> /dev/null"
+      ;;
+    all)
+      eval "$cmd &> /dev/null"
+      ;;
+    none)
+      eval "$cmd"
+      ;;
+    *)
+      echo "Invalid flag: $flag"
+      return 1
+      ;;
+  esac
+
+  return $?
 }
 
 function usage() {
@@ -113,6 +141,7 @@ REMOTE_CHECKS="yes"
 VALUES_FILES=""
 FORCE="yes"
 SAVE="yes"
+DEBUG_MODE="no"
 INSTALL_PREFLIGHT="no"
 
 #outputs
@@ -155,6 +184,10 @@ while (("$#")); do
     ;;
   --nosave)
     SAVE="no"
+    shift
+    ;;
+  --debug)
+    DEBUG_MODE="yes"
     shift
     ;;
   -f)
@@ -213,11 +246,11 @@ if [ -n "$PULL_SECRETS_OPTION" ] && [[ "$FORCE" == "yes" ]];
 then
   echo -e "--- TEMPLATING PULL SECRETS"
   echo -e "Please wait ..."
-  if ! helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PULL_SECRETS_OPTION $CHART > $script_dir/local_secrets.yaml 2>/dev/null;
+  if ! run_hide_output "helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PULL_SECRETS_OPTION $CHART > $script_dir/local_secrets.yaml" "stderr";
   then
     LOCAL_CHECKS_STATUS="error"
     exit_error "Unable to template pull secrets"
-  elif ! kubectl $NAMESPACE apply -f $script_dir/local_secrets.yaml &>/dev/null;
+  elif ! run_hide_output "kubectl $NAMESPACE apply -f $script_dir/local_secrets.yaml" "all";
   then
     LOCAL_CHECKS_STATUS="error"
     exit_error "Unable to apply pull secrets"
@@ -227,7 +260,7 @@ fi
 
 if [[ "$LOCAL_CHECKS" == "yes" ]];
 then
-  if ! kubectl preflight version &>/dev/null;
+  if ! run_hide_output "kubectl preflight version" "all";
   then
     if [[ "$INSTALL_PREFLIGHT" == "no" ]];
     then
@@ -241,7 +274,7 @@ then
   then
     echo -e "--- TEMPLATING LOCAL TESTS"
     echo -e "Please wait ..."
-    if ! helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml 2>/dev/null;
+    if ! run_hide_output "helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml" "stderr";
     then
       rm -f $script_dir/local_preflights.yaml
       LOCAL_CHECKS_STATUS="error"
@@ -250,7 +283,7 @@ then
   fi
 
   echo -e "--- RUNNING LOCAL TESTS"
-  output=`kubectl preflight $NAMESPACE --interactive=false $script_dir/local_preflights.yaml 2>/dev/null`
+  output=`run_hide_output "kubectl preflight $NAMESPACE --interactive=false $script_dir/local_preflights.yaml" "stderr"`
   retcode=$?
   echo -e "$output"
   GLOBAL_OUTPUT+="--- RUNNING LOCAL TESTS$output"
@@ -270,16 +303,16 @@ fi
 
 if [[ "$REMOTE_CHECKS" == "yes" ]];
 then
-  if ! `kubectl get cronjob $REMOTE_CRONJOB_NAME $NAMESPACE &>/dev/null` || [[ "$FORCE" == "yes" ]] ; then
+  if ! `run_hide_output "kubectl get cronjob $REMOTE_CRONJOB_NAME $NAMESPACE" "all"` || [[ "$FORCE" == "yes" ]] ; then
     echo -e "--- TEMPLATING REMOTE TESTS"
     echo -e "Please wait ..."
-    if ! helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml 2>/dev/null;
+    if ! run_hide_output "helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml" "stderr";
     then
       REMOTE_CHECKS_STATUS="error"
       exit_error "Unable to template remote preflights"
     else
-      kubectl delete $NAMESPACE cronjob $REMOTE_CRONJOB_NAME &>/dev/null
-      if ! kubectl apply $NAMESPACE -f $script_dir/remote_preflights.yaml &>/dev/null;
+      run_hide_output "kubectl delete $NAMESPACE cronjob $REMOTE_CRONJOB_NAME" "all"
+      if ! run_hide_output "kubectl apply $NAMESPACE -f $script_dir/remote_preflights.yaml" "all";
       then
         REMOTE_CHECKS_STATUS="error"
         exit_error "Unable to apply remote preflights"
@@ -293,7 +326,7 @@ then
   echo -e "If this step is too long, please check the pod is running in the accurate namespace"
   echo -e "Please wait ..."
   #Start job
-  kubectl create job $NAMESPACE --from=cronjob/$REMOTE_CRONJOB_NAME $REMOTE_CRONJOB_NAME-`mktemp -u XXXXX | tr '[:upper:]' '[:lower:]'` &>/dev/null
+  run_hide_output "kubectl create job $NAMESPACE --from=cronjob/$REMOTE_CRONJOB_NAME $REMOTE_CRONJOB_NAME-`mktemp -u XXXXX | tr '[:upper:]' '[:lower:]'`" "all"
   sleep 5
   pod=$(kubectl get pods $NAMESPACE -l gitguardian=remote-preflight --sort-by=.metadata.creationTimestamp -o 'jsonpath={.items[-1].metadata.name}')
 
