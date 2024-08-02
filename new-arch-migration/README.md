@@ -279,9 +279,14 @@ At the end of the deployment, depending on how you expose the application (Ingre
     Scale down the legacy application
 
     ```yaml
-    ./scale.sh --namespace <legacy_namespace> \
-      --v1 \
-      --all \
+    ./scale.sh --v1 \
+      --namespace <legacy_namespace> \
+      --component beat \
+      --component app \
+      --component worker \
+      --component scanner \
+      --component long-tasks \
+      --component email \
       --replicas 0
     ```
 
@@ -289,15 +294,6 @@ At the end of the deployment, depending on how you expose the application (Ingre
 
     ```yaml
     => Retrieve GitGuardian deployments
-    OK
-
-    => Scale deployment.apps/redis to 0 replicas
-    OK
-
-    => Scale deployment.apps/postgresql to 0 replicas
-    OK
-
-    => Scale deployment.apps/gitguardian-scanner-ods to 0 replicas
     OK
 
     => Scale deployment.apps/gitguardian-worker to 0 replicas
