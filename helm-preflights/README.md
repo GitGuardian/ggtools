@@ -29,6 +29,7 @@ The Kubernetes namespace should be the one that will be used for Gitguardian app
 Additionally, the script requires the following:
 - [helm v3](https://helm.sh/docs/intro/install/)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) (version ≥ 1.27.0)
+- [jq](https://github.com/jqlang/jq)
 - [kubectl preflight plugin](https://troubleshoot.sh/docs/#installation) (version ≥ 0.84.0, possible to install through the script)
 
 It is designed to run similarly to `helm install` command, an example is provided below.
