@@ -3,6 +3,14 @@
 # set -x
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+OS="$(uname | tr '[:upper:]' '[:lower:]')"
+ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')"
+
+PREFLIGHTS_ROOT_DIR="${HOME}/.local"
+PREFLIGHTS_BIN_DIR="${PREFLIGHTS_ROOT_DIR}/bin"
+
+export PATH="${PREFLIGHTS_BIN_DIR}:${PATH}"
+
 function echo_pass() {
   echo -e "\033[1;32mPASS\033[0m"
 }
@@ -21,6 +29,15 @@ function exit_error() {
 function echo_warn() {
   echo -en "\033[38;2;255;165;0m[WARN]\033[0m"
   echo $@
+}
+
+function install_jq() {
+  local os=$(echo $OS | sed -e 's/darwin/macos/')
+  echo -e "--- INSTALLING JQ BINARY"
+  mkdir -p "${PREFLIGHTS_BIN_DIR}"
+  curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-${os}-${ARCH} \
+    --output "${PREFLIGHTS_BIN_DIR}/jq"
+  chmod +x "${PREFLIGHTS_BIN_DIR}/jq"
 }
 
 function install_preflight() {
@@ -103,6 +120,9 @@ OPTIONS:
     --local
         Execute only local tests
 
+    --install-jq
+        Install jq tool
+
     --install-preflight
         Install latest preflight plugin using krew for local preflights
 
@@ -142,6 +162,7 @@ VALUES_FILES=""
 FORCE="yes"
 SAVE="yes"
 DEBUG_MODE="no"
+INSTALL_JQ="no"
 INSTALL_PREFLIGHT="no"
 
 #outputs
@@ -172,6 +193,10 @@ while (("$#")); do
     ;;
   --reuse)
     FORCE="no"
+    shift
+    ;;
+  --install-jq)
+    INSTALL_JQ="yes"
     shift
     ;;
   --install-preflight)
@@ -303,6 +328,15 @@ fi
 
 if [[ "$REMOTE_CHECKS" == "yes" ]];
 then
+  if ! run_hide_output "jq --version" "all";
+  then
+    if [[ "$INSTALL_JQ" == "no" ]];
+    then
+      exit_error "You need jq tool to run remote tests, use --install-jq to get it"
+    else
+      install_jq
+    fi
+  fi
   if ! `run_hide_output "kubectl get cronjob $REMOTE_CRONJOB_NAME $NAMESPACE" "all"` || [[ "$FORCE" == "yes" ]] ; then
     echo -e "--- TEMPLATING REMOTE TESTS"
     echo -e "Please wait ..."
@@ -326,7 +360,7 @@ then
   echo -e "If this step is too long, please check the pod is running in the accurate namespace"
   echo -e "Please wait ..."
   #Start job
-  run_hide_output "kubectl create job $NAMESPACE --from=cronjob/$REMOTE_CRONJOB_NAME $REMOTE_CRONJOB_NAME-`mktemp -u XXXXX | tr '[:upper:]' '[:lower:]'`" "all"
+  run_hide_output "kubectl create job $NAMESPACE --from=cronjob/$REMOTE_CRONJOB_NAME $REMOTE_CRONJOB_NAME-`mktemp -u XXXXX | tr '[:upper:]' '[:lower:]'` --dry-run=client -o json | jq 'del(.metadata.ownerReferences)' | kubectl apply -f -" "all"
   sleep 5
   pod=$(kubectl get pods $NAMESPACE -l gitguardian=remote-preflight --sort-by=.metadata.creationTimestamp -o 'jsonpath={.items[-1].metadata.name}')
 
