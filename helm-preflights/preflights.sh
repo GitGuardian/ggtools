@@ -9,6 +9,8 @@ ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's
 PREFLIGHTS_ROOT_DIR="${HOME}/.local"
 PREFLIGHTS_BIN_DIR="${PREFLIGHTS_ROOT_DIR}/bin"
 
+STABLE_CHARTS=("oci://registry.replicated.com/gitguardian/gitguardian" "oci://registry.replicated.com/gitguardian/stable/gitguardian" "oci://registry.replicated.com/gitguardian-seal/gitguardian" "oci://registry.replicated.com/gitguardian-seal/stable/gitguardian")
+
 export PATH="${PREFLIGHTS_BIN_DIR}:${PATH}"
 
 function echo_pass() {
@@ -43,6 +45,21 @@ function install_jq() {
 function install_preflight() {
   echo -e "--- INSTALLING PREFLIGHT PLUGIN"
   curl --silent https://krew.sh/preflight | bash >$script_dir/preflights_install.logs 2>&1
+}
+
+# Function to check if a string is in an array
+function contains_string_in_array() {
+  local search_string=$1
+  shift
+  local array=("$@")
+
+  for item in "${array[@]}"; do
+    if [[ "$item" == "$search_string" ]]; then
+      return 0  # Found
+    fi
+  done
+
+  return 1  # Not found
 }
 
 function write_results() {
@@ -155,6 +172,7 @@ REMOTE_CRONJOB_NAME="gitguardian-remote-preflights"
 #inputs
 CHART=""
 CHART_VERSION=""
+DEVEL=""
 NAMESPACE=""
 LOCAL_CHECKS="yes"
 REMOTE_CHECKS="yes"
@@ -254,6 +272,11 @@ then
   exit_error "You need helm and kubectl in your PATH"
 fi
 
+# If specified chart is not considered as a stable chart, enable Helm --devel flag
+if ! contains_string_in_array "$CHART" "${STABLE_CHARTS[@]}"; then
+  DEVEL="--devel"
+fi
+
 values_array=($VALUES_FILES)
 for i in "${!values_array[@]}";
 do
@@ -271,7 +294,7 @@ if [ -n "$PULL_SECRETS_OPTION" ] && [[ "$FORCE" == "yes" ]];
 then
   echo -e "--- TEMPLATING PULL SECRETS"
   echo -e "Please wait ..."
-  if ! run_hide_output "helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PULL_SECRETS_OPTION $CHART > $script_dir/local_secrets.yaml" "stderr";
+  if ! run_hide_output "helm template $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PULL_SECRETS_OPTION $CHART > $script_dir/local_secrets.yaml" "stderr";
   then
     LOCAL_CHECKS_STATUS="error"
     exit_error "Unable to template pull secrets"
@@ -299,7 +322,7 @@ then
   then
     echo -e "--- TEMPLATING LOCAL TESTS"
     echo -e "Please wait ..."
-    if ! run_hide_output "helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml" "stderr";
+    if ! run_hide_output "helm template $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml" "stderr";
     then
       rm -f $script_dir/local_preflights.yaml
       LOCAL_CHECKS_STATUS="error"
@@ -340,7 +363,7 @@ then
   if ! `run_hide_output "kubectl get cronjob $REMOTE_CRONJOB_NAME $NAMESPACE" "all"` || [[ "$FORCE" == "yes" ]] ; then
     echo -e "--- TEMPLATING REMOTE TESTS"
     echo -e "Please wait ..."
-    if ! run_hide_output "helm template $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml" "stderr";
+    if ! run_hide_output "helm template $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml" "stderr";
     then
       REMOTE_CHECKS_STATUS="error"
       exit_error "Unable to template remote preflights"
