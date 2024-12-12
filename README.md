@@ -12,3 +12,4 @@ Tools | Description
 [new-arch-migration](./new-arch-migration) | Assists in transitioning from the legacy GitGuardian architecture to the new architecture for Self-Hosted environments.
 [helm-preflights](./helm-preflights) | Ensures GitGuardian requirements are met prior installation or upgrade via [Helm on existing clusters](https://docs.gitguardian.com/self-hosting/installation/installation-existing-helm) by conducting tests from both the local user and the Kubernetes cluster.
 [honeytoken-tools](./honeytoken-tools) | Script to disseminate honeytokens in your repositories via Pull Requests
+[team-mapping-github-gitguardian](./team-mapping-github-gitguardian) | An example script using the GitHub and GitGuardian APIs to map GitHub Teams and the repositories they own to GitGuardian Teams and their perimeters.
