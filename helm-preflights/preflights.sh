@@ -8,6 +8,7 @@ ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's
 
 PREFLIGHTS_ROOT_DIR="${HOME}/.local"
 PREFLIGHTS_BIN_DIR="${PREFLIGHTS_ROOT_DIR}/bin"
+HELM_MINIMUM_VERSION="3.13.3"
 
 STABLE_CHARTS=("oci://registry.replicated.com/gitguardian/gitguardian" "oci://registry.replicated.com/gitguardian/stable/gitguardian" "oci://registry.replicated.com/gitguardian-seal/gitguardian" "oci://registry.replicated.com/gitguardian-seal/stable/gitguardian")
 
@@ -42,6 +43,13 @@ function install_jq() {
   chmod +x "${PREFLIGHTS_BIN_DIR}/jq"
 }
 
+function install_helm() {
+  echo -e "--- INSTALLING HELM BINARY"
+  mkdir -p "${PREFLIGHTS_BIN_DIR}"
+  export HELM_INSTALL_DIR="${PREFLIGHTS_BIN_DIR}"
+  curl --silent https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+}
+
 function install_preflight() {
   echo -e "--- INSTALLING PREFLIGHT PLUGIN"
   curl --silent https://krew.sh/preflight | bash >$script_dir/preflights_install.logs 2>&1
@@ -65,7 +73,7 @@ function contains_string_in_array() {
 function write_results() {
   if [[ "$SAVE" == "yes" ]];
   then
-    echo -e "--- SAVING RESULTS TO SECRET gitguardian-preflights-results"
+    echo -e "\n--- SAVING RESULTS TO SECRET gitguardian-preflights-results"
     #Used to preserve formatting
     cat <<K8SSECRET > $script_dir/preflights-output
 $GLOBAL_OUTPUT
@@ -140,6 +148,9 @@ OPTIONS:
     --install-jq
         Install jq tool
 
+    --install-helm
+        Install helm
+
     --install-preflight
         Install latest preflight plugin using krew for local preflights
 
@@ -181,6 +192,7 @@ FORCE="yes"
 SAVE="yes"
 DEBUG_MODE="no"
 INSTALL_JQ="no"
+INSTALL_HELM="no"
 INSTALL_PREFLIGHT="no"
 
 #outputs
@@ -219,6 +231,10 @@ while (("$#")); do
     ;;
   --install-preflight)
     INSTALL_PREFLIGHT="yes"
+    shift
+    ;;
+  --install-helm)
+    INSTALL_HELM="yes"
     shift
     ;;
   --no-replicated)
@@ -267,9 +283,32 @@ then
     exit_error "You must provide a chart (path or OCI uri)"
 fi
 
-if ! which kubectl helm &>/dev/null;
+if ! which kubectl &>/dev/null;
 then
-  exit_error "You need helm and kubectl in your PATH"
+  exit_error "You need kubectl in your PATH"
+fi
+
+if ! which helm &>/dev/null;
+then
+  if [[ "$INSTALL_HELM" == "no" ]];
+  then
+    exit_error "You need helm in your PATH. Use --install-helm to get it locally"
+  else
+    install_helm
+  fi
+fi
+
+# check helm minimum
+helm_current_version=$(helm version --template="{{.Version}}")
+helm_current_version=${helm_current_version#v}
+
+if [[ $(printf "%s\n%s\n" "$HELM_MINIMUM_VERSION" "$helm_current_version" | sort -V | head -n 1) != "$HELM_MINIMUM_VERSION" ]]; then
+  if [[ "$INSTALL_HELM" == "no" ]];
+  then
+    exit_error "Your current Helm version ($helm_current_version) is below the minimum required version ($HELM_MINIMUM_VERSION). Use --install-helm to get it locally"
+  else
+    install_helm
+  fi
 fi
 
 # If specified chart is not considered as a stable chart, enable Helm --devel flag
