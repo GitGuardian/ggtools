@@ -1,25 +1,36 @@
+import json
 import logging
+from marshmallow.utils import is_instance_or_subclass
 import requests
 
 from typing import Iterable, TypedDict
 from collections import defaultdict
 
 from pygitguardian.models import (
+    CreateTeam,
+    Detail,
     Invitation,
     Member,
+    Source,
     Team,
+    UpdateTeam,
 )
 
 from gitguardian_client import (
     add_member_to_team,
     create_new_teams,
+    delete_invitations,
+    delete_team,
+    remove_members,
     delete_teams_by_name,
     list_all_sources,
     list_all_team_members,
     list_all_teams,
     list_all_members,
     list_all_invitations,
-    list_team_sources,
+    list_sources_by_team_id,
+    list_team_invitations,
+    remove_team_invitation,
     remove_team_member,
     send_invitation,
     send_team_invitation,
@@ -44,7 +55,7 @@ query ($cursor: String, $admins: Boolean) {
             }
             groups {
                 nodes {
-                    name
+                    id
                     fullPath
                 }
             }
@@ -72,24 +83,33 @@ query ($cursor: String) {
 }
 """
 
-GitlabUser = TypedDict("GitlabUser", {"name": str, "email": str, "groups": list[str]})
+GitlabUserGroup = TypedDict(
+    "GitlabUserGroup", {"name": str, "email": str, "groups": list[dict[str, str | int]]}
+)
+GitlabUser = TypedDict("GitlabUser", {"name": str, "email": str})
+GitlabGroup = TypedDict(
+    "GitlabGroup", {"id": str, "fullPath": str, "users": list[GitlabUser]}
+)
 GitlabProject = TypedDict(
     "GitlabProject", {"name": str, "group": str, "fullPath": str, "id": str}
 )
 
 
-def transform_gitlab_user(gitlab_user: dict) -> GitlabUser:
+def transform_gitlab_user(gitlab_user: dict) -> GitlabUserGroup:
     """
     Transform the GraphQL representation of a User to a simpler dictionary
     """
 
-    groups = gitlab_user.get("groups", {"nodes": []}) or {"nodes": []}
+    groups = gitlab_user.get("groups", {}).get("nodes", [])
+    for group in groups:
+        group["fullPath"] = " / ".join(group["fullPath"].split("/"))
+
     return {
         "name": gitlab_user["name"],
         "email": next(
             (email["email"] for email in gitlab_user["emails"]["nodes"]), None
         ),
-        "groups": [group["name"] for group in groups["nodes"]],
+        "groups": groups,
     }
 
 
@@ -104,15 +124,39 @@ def transform_gitlab_project(gitlab_project: dict) -> GitlabProject:
     }
 
 
-def flatten_user_groups(gitlab_users: list[GitlabUser]) -> set[str]:
+def map_gitlab_groups(
+    gitlab_users: list[GitlabUserGroup],
+) -> dict[str, GitlabGroup]:
     """
-    Given a list of GitlabUser, return a flat list of all groups
+    Given a list of users, construct a mapping from a Gitlab id to GitlabGroup
     """
 
-    return {group for user in gitlab_users for group in user["groups"]}
+    gitlab_group_by_id: dict[str, GitlabGroup] = {}
+
+    selectors = {"id": gitlab_group_by_id}
+
+    for user in gitlab_users:
+        for group in user["groups"]:
+            for selector, res in selectors.items():
+                if group[selector] not in res:
+                    res[group[selector]] = {
+                        "id": group["id"],
+                        "fullPath": group["fullPath"],
+                        "users": [],
+                    }
+
+                group_users = res[group[selector]]["users"]
+                group_users.append(
+                    {
+                        "email": user["email"],
+                        "name": user["name"],
+                    }
+                )
+
+    return gitlab_group_by_id
 
 
-def fetch_gitlab_users() -> list[GitlabUser]:
+def fetch_gitlab_users() -> list[GitlabUserGroup]:
     """
     Fetch all Gitlab users and their groups using GraphQL, iterate on pagination if needed
     """
@@ -225,14 +269,13 @@ def list_group_members(gitlab_users: list[GitlabUser]) -> dict[str, set[str]]:
 
     for user in gitlab_users:
         for group in user["groups"]:
-            group_members[group].add(user["email"])
+            group_members[group["fullPath"]].add(user["email"])
 
     return group_members
 
 
-def synchronize_members(
-    gitlab_group_members: dict[str, set[str]],
-    gg_team_member_by_team_name: dict[str, list[tuple[int, Member]]],
+def synchronize_team_members(
+    gitlab_users: list[GitlabUserGroup],
     gg_members: list[Member],
     gg_teams: list[Team],
     gg_invitations: list[Invitation],
@@ -242,14 +285,21 @@ def synchronize_members(
     Gitlab group memberships with GitGuardian team memberships
     """
 
+    gitlab_group_members = list_group_members(gitlab_users)
+    gg_team_member_by_team_name = list_all_team_members(gg_teams, gg_members)
+
     members_by_emails = {member.email: member for member in gg_members}
     teams_by_names = {team.name: team for team in gg_teams}
     invitation_by_emails = {
         invitation.email: invitation for invitation in gg_invitations
     }
+    invitation_by_id = {invitation.id: invitation for invitation in gg_invitations}
 
     for group_name, group_members in gitlab_group_members.items():
+        gg_team = teams_by_names[group_name]
+
         if group_name in gg_team_member_by_team_name:
+            team_invitations = list_team_invitations(gg_team)
 
             team_members = gg_team_member_by_team_name[group_name]
             team_member_emails = {
@@ -261,7 +311,20 @@ def synchronize_members(
             members_to_add = group_members - team_member_emails
             members_to_remove = team_member_emails - group_members
 
-            gg_team = teams_by_names[group_name]
+            invitations_to_remove = [
+                team_invitation
+                for team_invitation in team_invitations
+                if invitation_by_id[team_invitation.invitation_id].email
+                not in group_members
+            ]
+
+            for team_invitation in invitations_to_remove:
+                remove_team_invitation(
+                    gg_team,
+                    team_invitation.id,
+                    invitation_by_id[team_invitation.invitation_id].email,
+                )
+
             team_id = gg_team.id
             for member in members_to_add:
                 # If the member exists in GitGuardian, we can add him to the team
@@ -280,16 +343,20 @@ def synchronize_members(
             # Members we could not find in Gitlab will be removed from the GitGuardian team
             for member in members_to_remove:
                 team_member_id = next(
-                    id
-                    for id, team_member in team_members
-                    if team_member.email == member
+                    (
+                        id
+                        for id, team_member in team_members
+                        if team_member.email == member
+                    ),
+                    None,
                 )
-                remove_team_member(team_id, team_member_id)
+                if team_member_id:
+                    remove_team_member(team_id, team_member_id)
 
 
 def infer_gitlab_email(
-    gitlab_users: Iterable[GitlabUser], gg_members: Iterable[Member]
-) -> list[GitlabUser]:
+    gitlab_users: Iterable[GitlabUserGroup], gg_members: Iterable[Member]
+) -> list[GitlabUserGroup]:
     """
     Given a list of gitlab users and a list of GitGuardian members, infer the Gitlab email
     from the users name by comparing it to the name of GitGuardian members
@@ -322,7 +389,9 @@ def get_gitlab_projects_per_group(
     return projects_per_group
 
 
-def synchronize_sources(gg_teams: Iterable[Team]):
+def synchronize_sources(
+    gg_teams: Iterable[Team], sources_by_team_id: dict[id, list[Source]]
+):
     """
     Given all GitGuardian teams, synchronize the list of sources attached
     to each team based on gitlab projects
@@ -351,7 +420,7 @@ def synchronize_sources(gg_teams: Iterable[Team]):
         if team_projects is None:
             continue
 
-        team_sources = list_team_sources(team)
+        team_sources = sources_by_team_id[team.id]
 
         project_ids = {
             project["id"]
@@ -370,34 +439,144 @@ def synchronize_sources(gg_teams: Iterable[Team]):
         update_team_source(team, sources_to_add, sources_to_delete)
 
 
+def invite_new_members(
+    gitlab_users: Iterable[GitlabUserGroup], gg_members: Iterable[Member]
+):
+    """
+    Invite missing members to the workspace
+    """
+
+    all_invitations = list_all_invitations()
+    gitlab_users_by_email = {
+        gitlab_user["email"]: gitlab_user for gitlab_user in gitlab_users
+    }
+    members_to_invite = (
+        set(gitlab_users_by_email.keys())
+        - {member.email for member in gg_members}
+        - {invitation.email for invitation in all_invitations}
+    )
+
+    for member_email in members_to_invite:
+        send_invitation(member_email)
+
+
+def create_team_from_group(group: GitlabGroup) -> Team:
+    """
+    Given a Gitlab group, create the corresponding GitGuardian team
+    """
+    metadata = {key: value for key, value in group.items() if key != "users"}
+    payload = CreateTeam(group["fullPath"], description=json.dumps(metadata))
+    response = CONFIG.client.create_team(payload)
+
+    if isinstance(response, Detail):
+        raise RuntimeError(
+            f"Unable to create team {group['fullPath']}: {response.detail}"
+        )
+
+    logger.info(f"Successfully created team {group['fullPath']}")
+    return response
+
+
+def rename_team_from_group(team: Team, group: GitlabGroup) -> Team:
+    """
+    Given a GitGuardian team and a Gitlab group, rename the GitGuardian team to
+    match the Gitlab group full path
+    """
+    metadata = {key: value for key, value in group.items() if key != "users"}
+    payload = UpdateTeam(
+        team.id, name=group["fullPath"], description=json.dumps(metadata)
+    )
+    response = CONFIG.client.update_team(payload)
+
+    if isinstance(response, Detail):
+        raise RuntimeError(
+            f"Unable to rename team {group['fullPath']}: {response.detail}"
+        )
+
+    logger.info(f"Successfully renamed team from {team.name} to {group['fullPath']}")
+    return response
+
+
+def synchronize_teams(
+    teams_by_external_id: dict[str, Team],
+    groups_by_id: dict[str, GitlabGroup],
+) -> list[Team]:
+    """
+    Using stored external ids, we will:
+        - Create teams that don't exist
+        - Delete teams we cannot find
+        - Rename teams that have been renamed on Gitlab
+    """
+
+    teams_to_add = set(groups_by_id.keys()) - set(teams_by_external_id.keys())
+    teams_to_remove = set(teams_by_external_id.keys()) - set(groups_by_id.keys())
+    team_intersection = set(teams_by_external_id.keys()) & set(groups_by_id.keys())
+
+    for team in teams_to_add:
+        group = groups_by_id[team]
+        teams_by_external_id[group["id"]] = create_team_from_group(groups_by_id[team])
+    for team in teams_to_remove:
+        delete_team(teams_by_external_id[team])
+
+    teams_by_external_id = {
+        id: team
+        for id, team in teams_by_external_id.items()
+        if id not in teams_to_remove
+    }
+
+    for team in team_intersection:
+        gg_team = teams_by_external_id[team]
+        group = groups_by_id[team]
+
+        if gg_team.name != group["fullPath"]:
+            teams_by_external_id[group["fullPath"]] = rename_team_from_group(
+                gg_team, group
+            )
+
+    return list(teams_by_external_id.values())
+
+
 def main():
-    gg_teams: list[Team] = list_all_teams()
-    gg_members: list[Member] = list_all_members()
-    gg_invitations: list[Invitation] = list_all_invitations()
+    gg_teams, teams_by_external_id = list_all_teams()
+    gg_members = list_all_members()
+    gg_source_by_team_id = list_sources_by_team_id(gg_teams)
 
     gitlab_users = infer_gitlab_email(fetch_gitlab_users(), gg_members)
-    gitlab_groups = set(flatten_user_groups(gitlab_users))
+    gitlab_user_emails = {gitlab_user["email"] for gitlab_user in gitlab_users}
+    gitlab_group_by_id = map_gitlab_groups(gitlab_users)
 
-    to_delete_teams = set([team.name for team in gg_teams]) - gitlab_groups
-    to_add_teams = gitlab_groups - set([team.name for team in gg_teams])
-    created_teams = create_new_teams(to_add_teams)
-    delete_teams_by_name(gg_teams, to_delete_teams)
+    available_teams = synchronize_teams(teams_by_external_id, gitlab_group_by_id)
 
-    available_teams = [
-        team for team in gg_teams if team.name not in to_delete_teams
-    ] + created_teams
-    current_team_members = list_all_team_members(available_teams, gg_members)
-    group_members = list_group_members(gitlab_users)
+    # Delete or deactivate members we cannot find in gitlab anymore
+    members_to_delete = [
+        member for member in gg_members if member.email not in gitlab_user_emails
+    ]
+    remove_members(members_to_delete)
 
-    synchronize_sources(available_teams)
+    member_ids_to_delete = {member.id for member in members_to_delete}
+    gg_members = [
+        member for member in gg_members if member.id not in member_ids_to_delete
+    ]
 
-    synchronize_members(
-        group_members,
-        current_team_members,
-        gg_members,
-        available_teams,
-        gg_invitations,
-    )
+    invite_new_members(gitlab_users, gg_members)
+
+    synchronize_sources(available_teams, gg_source_by_team_id)
+
+    gg_invitations = list_all_invitations()
+    invitations_to_delete = [
+        invitation
+        for invitation in gg_invitations
+        if invitation.email not in gitlab_user_emails
+    ]
+    invitation_ids_to_delete = {invitation.id for invitation in invitations_to_delete}
+    delete_invitations(invitations_to_delete)
+
+    gg_invitations = [
+        invitation
+        for invitation in gg_invitations
+        if invitation.id not in invitation_ids_to_delete
+    ]
+    synchronize_team_members(gitlab_users, gg_members, available_teams, gg_invitations)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+import json
+from collections import defaultdict
 import logging
 
 from urllib.parse import urlparse, parse_qs
@@ -9,6 +11,7 @@ from pygitguardian.models import (
     CreateTeamInvitation,
     CreateTeamMember,
     CreateTeamMemberParameters,
+    DeleteMemberParameters,
     Detail,
     IncidentPermission,
     Invitation,
@@ -18,13 +21,15 @@ from pygitguardian.models import (
     Team,
     TeamInvitation,
     TeamsParameters,
+    UpdateMember,
+    UpdateTeam,
     UpdateTeamSource,
 )
 from pygitguardian.models_utils import (
     CursorPaginatedResponse,
     PaginationParameter,
 )
-from typing import Any
+from typing import Any, Iterable
 
 from config import CONFIG
 
@@ -51,7 +56,9 @@ def pagination_max_results(
     on all `list` methods
     """
 
-    pagination_parameters = parameter_cls(**additional_parameters)
+    pagination_parameters = parameter_cls(
+        per_page=CONFIG.pagination_size, **additional_parameters
+    )
     paginated_response: CursorPaginatedResponse | Detail = method(
         parameters=pagination_parameters
     )
@@ -64,7 +71,9 @@ def pagination_max_results(
     next = paginated_response.next
 
     while next and (cursor := get_cursor(next)):
-        pagination_parameters = parameter_cls(cursor=cursor, **additional_parameters)
+        pagination_parameters = parameter_cls(
+            cursor=cursor, per_page=CONFIG.pagination_size, **additional_parameters
+        )
         paginated_response = method(parameters=pagination_parameters)
 
         if isinstance(paginated_response, Detail):
@@ -95,9 +104,10 @@ def list_all_team_members(
         )
         team_members = pagination_max_results(list_team_members)
         for team_member in team_members:
-            all_team_members[team.name].append(
-                (team_member.id, id_to_member[team_member.member_id])
-            )
+            if team_member.member_id in id_to_member:
+                all_team_members[team.name].append(
+                    (team_member.id, id_to_member[team_member.member_id])
+                )
 
     return all_team_members
 
@@ -113,14 +123,30 @@ def list_team_sources(team: Team) -> list[Source]:
     return pagination_max_results(wrapper)
 
 
-def list_all_teams() -> list[Team]:
+def list_all_teams() -> tuple[list[Team], dict[str, list[Team]]]:
     """
-    Get all teams from GitGuardian
+    Get syncable teams from GitGuardian and teams by external id
     """
 
-    return pagination_max_results(
+    all_teams: list[Team] = pagination_max_results(
         CONFIG.client.list_teams, TeamsParameters, {"is_global": False}
     )
+
+    sync_teams = []
+    teams_by_external_id: dict[str, Team] = {}
+    for team in all_teams:
+        if team.description is None:
+            continue
+        try:
+            metadata = json.loads(team.description)
+            external_id = metadata["id"]
+
+            teams_by_external_id[external_id] = team
+            sync_teams.append(team)
+        except json.JSONDecodeError:
+            pass
+
+    return sync_teams, teams_by_external_id
 
 
 def list_all_members() -> list[Member]:
@@ -158,15 +184,22 @@ def remove_team_member(team: Team, team_member_id: int):
         team_id=team.id, team_member_id=team_member_id
     )
     if isinstance(response, Detail):
-        raise RuntimeError(f"Unable to remove team member: {response.content}")
+        raise RuntimeError(f"Unable to remove team member: {response.detail}")
 
     logger.warning(
-        "Successfully removed team member",
-        extra=dict(
-            team_id=team.id,
-            team_name=team.name,
-            team_member_id=team_member_id,
-        ),
+        f"Successfully removed member {team_member_id} from {team.name}",
+    )
+
+
+def remove_team_invitation(team: Team, invitation_id: int, email: str):
+    response = CONFIG.client.delete_team_invitation(
+        team_id=team.id, invitation_id=invitation_id
+    )
+    if isinstance(response, Detail):
+        raise RuntimeError(f"Unable to remove team invitation: {response.detail}")
+
+    logger.warning(
+        f"Successfully removed team invitation for {email} from {team.name}",
     )
 
 
@@ -184,9 +217,12 @@ def send_invitation(
     )
 
     if isinstance(response, Detail):
-        raise RuntimeError(f"Unable to invite member: {response.content}")
+        if response.status_code == 409:
+            logger.debug(f"User {member_email} is already invited to the workspace")
+        else:
+            raise RuntimeError(f"Unable to invite member: {response.detail}")
 
-    logger.info("Successfully invited member", email=member_email)
+    logger.info(f"Successfully invited member {member_email}")
 
     return response
 
@@ -209,15 +245,10 @@ def send_team_invitation(
                 f"User {invitation.email} is already invited to the team ({team.name})"
             )
             return
-        raise RuntimeError(f"Unable to invite member to the team: {response.content}")
+        raise RuntimeError(f"Unable to invite member to the team: {response.detail}")
 
     logger.info(
-        "Successfully invited member to the team",
-        extra=dict(
-            email=invitation.email,
-            team_id=team.id,
-            team_name=team.name,
-        ),
+        f"Successfully invited member {invitation.email} to the team {team.name}",
     )
 
     return response
@@ -250,33 +281,58 @@ def add_member_to_team(
             )
             return
         else:
-
-            raise RuntimeError(f"Unable to add member to the team: {response.content}")
+            raise RuntimeError(f"Unable to add member to the team: {response.detail}")
 
     logger.info(
-        "Successfully added member to the team",
-        extra=dict(
-            email=member.email,
-            team_id=team.id,
-            team_name=team.name,
-        ),
+        f"Successfully added member to the team {member.email}",
     )
 
 
-def delete_teams_by_name(all_teams: list[Team], team_names_to_delete: set[str]):
+def list_sources_by_team_id(all_teams: Iterable[Team]) -> dict[id, list[Source]]:
+    """
+    Give a list of teams, return all their sources mapped by team id to a list of source
+    """
+    source_by_team_id = defaultdict(list)
+    for team in all_teams:
+        team_sources = list_team_sources(team)
+        source_by_team_id[team.id] = team_sources
+
+    return source_by_team_id
+
+
+def delete_team(team: Team):
+    response = CONFIG.client.delete_team(team.id)
+
+    if isinstance(response, Detail):
+        raise RuntimeError(f"Unable to delete team {team.name}: {response.detail}")
+
+    logger.info(f"Successfully deleted team {team.name}")
+
+
+def delete_teams_by_name(
+    all_teams: list[Team],
+    team_names_to_delete: set[str],
+    sources_by_team_id: dict[id, list[Source]],
+):
     """
     Given every team available in GitGuardian, remove teams that are in the set of
     team to delete
+    It will not delete teams that have sources outside of gitlab
     """
 
     to_remove = [team for team in all_teams if team.name in team_names_to_delete]
 
     for team in to_remove:
-        CONFIG.client.delete_team(team.id)
-        logger.warning(
-            "Successfully deleted team",
-            extra=dict(team_id=team.id, team_name=team.name),
-        )
+        team_sources = sources_by_team_id[team.id]
+        if any(source.type != "gitlab" for source in team_sources):
+            logger.warning(
+                f"Cannot delete team {team.name}, it has sources not in gitlab"
+            )
+        else:
+            CONFIG.client.delete_team(team.id)
+            logger.warning(
+                f"Successfully deleted team {team.name}",
+            )
 
 
 def create_new_teams(teams: set[str]) -> list[Team]:
@@ -290,8 +346,7 @@ def create_new_teams(teams: set[str]) -> list[Team]:
         new_teams.append(team)
 
         logger.info(
-            "Successfully created team",
-            extra=dict(team_id=team.id, team_name=team.name),
+            f"Successfully created team {team.name}",
         )
 
     return new_teams
@@ -308,14 +363,77 @@ def update_team_source(
     response = CONFIG.client.update_team_source(payload)
 
     if isinstance(response, Detail):
-        raise RuntimeError(f"Unable to update team source: {response.content}")
+        raise RuntimeError(f"Unable to update team source: {response.detail}")
 
     logger.info(
-        "Successfully updated team sources",
-        extra=dict(
-            team_id=team.id,
-            team_name=team.name,
-            sources_added=sources_to_add,
-            sources_removed=sources_to_remove,
-        ),
+        f"Successfully updated sources for {team.name}",
     )
+
+
+def delete_invitation(invitation: Invitation):
+    response = CONFIG.client.delete_invitation(invitation.id)
+
+    if isinstance(response, Detail):
+        raise RuntimeError(f"Unable to delete invitation: {response.detail}")
+
+    logger.info(
+        f"Successfully deleted invitation for {invitation.email}",
+    )
+
+
+def delete_invitations(invitations: Iterable[Invitation]):
+    for invitation in invitations:
+        delete_invitation(invitation)
+
+
+def delete_member(member: Member):
+    """
+    Delete a member from the workspace
+    """
+
+    if not CONFIG.remove_members:
+        logger.debug("Removing members is disabled, skipping...")
+        return
+
+    payload = DeleteMemberParameters(member.id, send_email=CONFIG.send_email)
+    response = CONFIG.client.delete_member(payload)
+
+    if isinstance(response, Detail):
+        logger.error(f"Unable to delete member : {member.email}")
+    else:
+        logger.info(f"Successfully deleted member {member.email}")
+
+
+def deactivate_member(member: Member):
+    """
+    Deactivate a member from the workspace
+    """
+
+    response = CONFIG.client.update_member(
+        UpdateMember(member.id, active=False, access_level=AccessLevel.RESTRICTED)
+    )
+
+    if isinstance(response, Detail):
+        logger.error(f"Unable to deactivate member : {member.email}")
+    else:
+        logger.info(f"Successfully deactivated member {member.email}")
+
+
+def remove_members(members_to_delete: Iterable[Member]):
+    """
+    Delete or deactive members from the workspace depending on CONFIG
+    """
+
+    if not CONFIG.remove_members:
+        logger.debug("Removing members is disabled, skipping...")
+        return
+
+    for member in members_to_delete:
+        delete_member(member)
+
+
+def list_team_invitations(team: Team) -> list[TeamInvitation]:
+    wrapper = lambda parameters: CONFIG.client.list_team_invitations(
+        team.id, parameters=parameters
+    )
+    return pagination_max_results(wrapper)

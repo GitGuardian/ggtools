@@ -37,6 +37,7 @@ Optional environment variables:
 
 - `GITGUARDIAN_INSTANCE` - The URL of a self-hosted GitGuardian instance. Just the scheme and hostname: https://gitguardian.example.com
 - `SEND_EMAIL` - Defines whether we should send an email to users when sending invitations
+- `REMOVE_MEMBERS` - Defines whether we should delete users from teams if they are not in any Gitlab group
 - `EXCLUDE_ADMIN` - Defines whether we should exclude admin users from sync
 - `DEFAULT_INCIDENT_PERMISSION` - Defines the default incident permission level for team members, defaults to `can_edit`, it's value must be one of :
   - `can_view` : For read permissions
@@ -51,9 +52,9 @@ python config.py
 
 ### Nested groups
 
-Teams in GitGuardian will be created based on the name of the deepest group (not the **full path**) of every user's group.
+Teams in GitGuardian will be created based on the full path of the group of every user's group.
 
-This means that if a user is in `top-group / middle-group / bottom-group`, he will be added to the team `bottom-group` in GitGuardian.
+This means that if a user is in `top-group / middle-group / bottom-group`, he will be added to the team `top-group / middle-group / bottom-group` in GitGuardian.
 
 ### Invoking
 
