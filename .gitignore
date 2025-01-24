@@ -29,3 +29,7 @@ develop-eggs
 .installed.cfg
 lib
 lib64
+
+# Python
+__pycache__/
+.venv/
