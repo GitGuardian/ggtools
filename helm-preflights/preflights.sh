@@ -255,6 +255,7 @@ while (("$#")); do
     shift
     ;;
   -h | --help)
+    SAVE="no"
     usage
     exit 0
     ;;
