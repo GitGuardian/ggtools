@@ -423,7 +423,7 @@ then
   echo -e "If this step is too long, please check the pod is running in the accurate namespace"
   echo -e "Please wait ..."
   #Start job
-  run_hide_output "kubectl create job $NAMESPACE --from=cronjob/$REMOTE_CRONJOB_NAME $REMOTE_CRONJOB_NAME-`mktemp -u XXXXX | tr '[:upper:]' '[:lower:]'` --dry-run=client -o json | jq 'del(.metadata.ownerReferences)' | kubectl apply -f -" "all"
+  run_hide_output "kubectl create job $NAMESPACE --from=cronjob/$REMOTE_CRONJOB_NAME $REMOTE_CRONJOB_NAME-`mktemp -u XXXXXX | tr '[:upper:]' '[:lower:]'` --dry-run=client -o json | jq 'del(.metadata.ownerReferences)' | kubectl apply -f -" "all"
   sleep 5
   pod=$(kubectl get pods $NAMESPACE -l gitguardian=remote-preflight --sort-by=.metadata.creationTimestamp -o 'jsonpath={.items[-1].metadata.name}')
 
