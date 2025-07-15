@@ -180,7 +180,11 @@ def fetch_gitlab_users() -> list[GitlabUserGroup]:
     data = response.json()
     end_cursor = data["data"]["users"]["pageInfo"]["endCursor"]
     users.extend(
-        [transform_gitlab_user(user) for user in data["data"]["users"]["nodes"]]
+        [
+            transform_gitlab_user(user)
+            for user in data["data"]["users"]["nodes"]
+            if user is not None
+        ]
     )
 
     while end_cursor:
@@ -197,7 +201,11 @@ def fetch_gitlab_users() -> list[GitlabUserGroup]:
         data = response.json()
         end_cursor = data["data"]["users"]["pageInfo"]["endCursor"]
         users.extend(
-            [transform_gitlab_user(user) for user in data["data"]["users"]["nodes"]]
+            [
+                transform_gitlab_user(user)
+                for user in data["data"]["users"]["nodes"]
+                if user is not None
+            ]
         )
 
     return users
