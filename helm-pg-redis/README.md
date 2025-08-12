@@ -150,18 +150,9 @@ For deploying GitGuardian in an existing Kubernetes cluster using Helm, follow t
 
 If you use the PostgreSQL HA presets, the read service is also available (Bitnami creates a `-read` service for replicas). GitGuardian generally needs a single primary endpoint for writes; configure read/write splitting only if supported and desired within your environment.
 
-### Customization
-
-- To change storage class, set `primary.persistence.storageClass` (PostgreSQL) or `master.persistence.storageClass` (Redis). For HA, also set the replica persistence storage class.
-- To change size, either switch to another preset file or adjust `resources.requests/limits` and `persistence.size` entries.
-- To change database/user names and passwords, edit the `auth.*` block in the PostgreSQL values files. For Redis, set `auth.password` if you want a fixed password.
-
-### Customization
-
-- Edit the YAML presets directly under `values/postgres/` and `values/redis/` to match your environment.
-- Common fields: `auth.username`, `auth.database`, `auth.password` (optional), `persistence.storageClass`, `persistence.size`, `resources.requests/limits`.
-
 ### Uninstall
+
+Replace `<namespace>` accordingly.
 
 ```bash
 helm uninstall pg -n <namespace> || true
@@ -169,5 +160,3 @@ helm uninstall redis -n <namespace> || true
 ```
 
 This deletes only the Helm releases. PersistentVolumes may remain depending on your `reclaimPolicy` and release settings.
-
-
