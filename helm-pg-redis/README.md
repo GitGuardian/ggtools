@@ -9,6 +9,16 @@ This folder provides ready-to-use Helm configurations to deploy PostgreSQL and R
   - **Standalone** with persistence (aligned with the scaling guide). If you require Redis replication/sentinel, extend these values as needed.
 - All presets are available in three sizes aligned with the GitGuardian scaling guide: **small**, **medium**, **large**.
 
+### Recommendation for cloud providers
+
+If you deploy GitGuardian on a public cloud, prefer the provider's managed services for PostgreSQL and Redis instead of running them in-cluster:
+
+- AWS: Amazon RDS/Aurora (PostgreSQL), Amazon ElastiCache/MemoryDB (Redis)
+- GCP: Cloud SQL for PostgreSQL, Memorystore for Redis
+- Azure: Azure Database for PostgreSQL, Azure Cache for Redis
+
+These Helm values are intended for existing-cluster installations or environments where managed services are not available. Managed services typically offer higher availability, automated backups/maintenance, and operational SLAs.
+
 Presets are mapped as follows:
 
 - PostgreSQL
@@ -32,28 +42,45 @@ You can customize storage classes, resource requests/limits, and replica counts 
 
 ### Quick start
 
-The scripts below install Bitnami charts using the preset values files. They also create the target namespace when missing.
+Use the commands below to install Bitnami charts with the preset values files. Create the target namespace if missing.
 
-1) Add Bitnami repo (if not already added):
+1) Add Bitnami repo (if not already added) and create a namespace:
 
 ```bash
 helm repo add bitnami https://charts.bitnami.com/bitnami && helm repo update
+kubectl get ns gg-datastores >/dev/null 2>&1 || kubectl create ns gg-datastores
 ```
 
 2) Install PostgreSQL (choose topology and size):
 
 ```bash
-# Examples
-./scripts/install-postgres.sh standalone small           # standalone small
-./scripts/install-postgres.sh ha medium gg-datastores pg # HA medium in ns gg-datastores, release name pg
+# Standalone (PoC/testing) - small preset
+helm upgrade --install pg bitnami/postgresql \
+  -n gg-datastores \
+  -f helm-pg-redis/values/postgres/standalone-small.yaml \
+  --wait
+
+# HA (recommended for production) - medium preset
+helm upgrade --install pg bitnami/postgresql \
+  -n gg-datastores \
+  -f helm-pg-redis/values/postgres/ha-medium.yaml \
+  --wait
 ```
 
 3) Install Redis (choose size):
 
 ```bash
-# Examples
-./scripts/install-redis.sh standalone small
-./scripts/install-redis.sh standalone large gg-datastores redis
+# Standalone - small preset
+helm upgrade --install redis bitnami/redis \
+  -n gg-datastores \
+  -f helm-pg-redis/values/redis/standalone-small.yaml \
+  --wait
+
+# Standalone - large preset
+helm upgrade --install redis bitnami/redis \
+  -n gg-datastores \
+  -f helm-pg-redis/values/redis/standalone-large.yaml \
+  --wait
 ```
 
 4) Retrieve credentials and assemble connection strings:
@@ -152,7 +179,6 @@ readReplicas:
 2) Install by layering your overrides on top of a preset:
 
 ```bash
-./scripts/install-postgres.sh ha large gg-datastores pg
 helm upgrade --install pg bitnami/postgresql \
   -n gg-datastores \
   -f helm-pg-redis/values/postgres/ha-large.yaml \
@@ -181,7 +207,8 @@ Redis follows the same approach (see `values/redis/`). Common customizations:
 ### Uninstall
 
 ```bash
-./scripts/uninstall.sh gg-datastores pg redis
+helm uninstall pg -n gg-datastores || true
+helm uninstall redis -n gg-datastores || true
 ```
 
 This deletes only the Helm releases. PersistentVolumes may remain depending on your `reclaimPolicy` and release settings.
