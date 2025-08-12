@@ -61,8 +61,10 @@ Edit the YAML presets under `values/postgres/` (and `values/redis/` later) to fi
 
 3) Install PostgreSQL (choose topology and size):
 
-`helm template --namespace <namespace> -f local-values.yaml -s templates/image-pull-secrets.yaml oci://registry.replicated.com/gitguardian/gitguardian > local_secrets.yaml`
-`kubectl --namespace <namespace> apply -f ./local_secrets.yaml`
+```bash
+helm template --namespace <namespace> -f local-values.yaml -s templates/image-pull-secrets.yaml oci://registry.replicated.com/gitguardian/gitguardian > local_secrets.yaml
+kubectl --namespace <namespace> apply -f ./local_secrets.yaml
+```
 
 ```bash
 # Standalone (PoC/testing) - small preset
@@ -101,7 +103,7 @@ helm upgrade --install redis bitnami/redis \
 ```bash
 NAMESPACE=<namespace>
 
-# PostgreSQL (Bitnami postgresql)
+# PostgreSQL
 PG_RELEASE=pg
 PG_PRIMARY_SERVICE="$PG_RELEASE-postgresql"
 PG_PASSWORD=$(kubectl get secret -n "$NAMESPACE" "$PG_RELEASE-postgresql" -o jsonpath='{.data.postgres-password}' | base64 -d)
@@ -112,7 +114,7 @@ echo "PostgreSQL host: $PG_PRIMARY_SERVICE.$NAMESPACE.svc.cluster.local:5432"
 echo "PostgreSQL postgres user password: $PG_PASSWORD"
 echo "PostgreSQL app user password (if configured): ${PG_APP_PASSWORD:-<not-set>}"
 
-# Redis (Bitnami redis)
+# Redis
 REDIS_RELEASE=redis
 REDIS_SERVICE="$REDIS_RELEASE-redis-master"   # standalone/replication master service
 REDIS_PASSWORD=$(kubectl get secret -n "$NAMESPACE" "$REDIS_RELEASE-redis" -o jsonpath='{.data.redis-password}' | base64 -d)
