@@ -13,9 +13,9 @@ This folder provides ready-to-use Helm configurations to deploy PostgreSQL and R
 
 If you deploy GitGuardian on a public cloud, prefer the provider's managed services for PostgreSQL and Redis instead of running them in-cluster:
 
-- AWS: Amazon RDS/Aurora (PostgreSQL), Amazon ElastiCache/MemoryDB (Redis)
-- GCP: Cloud SQL for PostgreSQL, Memorystore for Redis
-- Azure: Azure Database for PostgreSQL, Azure Cache for Redis
+- AWS: [Amazon RDS/Aurora (PostgreSQL)](https://docs.gitguardian.com/self-hosting/installation/databases/postgres-rds), [Amazon ElastiCache (Redis)](https://docs.gitguardian.com/self-hosting/installation/databases/redis-elasticache)
+- GCP: [Cloud SQL for PostgreSQL](https://docs.gitguardian.com/self-hosting/installation/databases/postgres-cloudsql), [Memorystore for Redis](https://docs.gitguardian.com/self-hosting/installation/databases/redis-memorystore)
+- Azure: [Azure Database for PostgreSQL](https://docs.gitguardian.com/self-hosting/installation/databases/postgres-azure), [Azure Cache for Redis](https://docs.gitguardian.com/self-hosting/installation/databases/redis-azure-cache)
 
 These Helm values are intended for existing-cluster installations or environments where managed services are not available. Managed services typically offer higher availability, automated backups/maintenance, and operational SLAs.
 
@@ -41,16 +41,18 @@ You can customize storage classes, resource requests/limits, and replica counts 
 - Helm 3.x and `kubectl` configured against your target cluster
 - A default `StorageClass` or an explicit one you will set in values files
 - Cluster capacity matching the selected preset(s)
+- A Kubernetes namespace where PostgreSQL, Redis, and the GitGuardian application will be installed.
+  - Example: `kubectl create ns gitguardian`
 
 ### Quick start
 
-Use the commands below to install Bitnami charts with the preset values files. Create the target namespace if missing.
+Use the commands below to install Bitnami charts with the preset values files. Replace `<namespace>` accordingly.
 
 1) Add Bitnami repo (if not already added) and create a namespace:
 
 ```bash
 helm repo add bitnami https://charts.bitnami.com/bitnami && helm repo update
-kubectl get ns gg-datastores >/dev/null 2>&1 || kubectl create ns gg-datastores
+kubectl get ns <namespace>
 ```
 
 2) Optional: customize a values file
@@ -59,16 +61,19 @@ Edit the YAML presets under `values/postgres/` (and `values/redis/` later) to fi
 
 3) Install PostgreSQL (choose topology and size):
 
+`helm template --namespace <namespace> -f local-values.yaml -s templates/image-pull-secrets.yaml oci://registry.replicated.com/gitguardian/gitguardian > local_secrets.yaml`
+`kubectl --namespace <namespace> apply -f ./local_secrets.yaml`
+
 ```bash
 # Standalone (PoC/testing) - small preset
 helm upgrade --install pg bitnami/postgresql \
-  -n gg-datastores \
+  -n <namespace> \
   -f helm-pg-redis/values/postgres/standalone-small.yaml \
   --wait
 
 # HA (recommended for production) - medium preset
 helm upgrade --install pg bitnami/postgresql \
-  -n gg-datastores \
+  -n <namespace> \
   -f helm-pg-redis/values/postgres/ha-medium.yaml \
   --wait
 ```
@@ -78,13 +83,13 @@ helm upgrade --install pg bitnami/postgresql \
 ```bash
 # Standalone - small preset
 helm upgrade --install redis bitnami/redis \
-  -n gg-datastores \
+  -n <namespace> \
   -f helm-pg-redis/values/redis/standalone-small.yaml \
   --wait
 
 # Standalone - large preset
 helm upgrade --install redis bitnami/redis \
-  -n gg-datastores \
+  -n <namespace> \
   -f helm-pg-redis/values/redis/standalone-large.yaml \
   --wait
 ```
@@ -92,7 +97,7 @@ helm upgrade --install redis bitnami/redis \
 5) Retrieve credentials and assemble connection strings:
 
 ```bash
-NAMESPACE=gg-datastores
+NAMESPACE=<namespace>
 
 # PostgreSQL (Bitnami postgresql)
 PG_RELEASE=pg
@@ -151,8 +156,8 @@ If you use the PostgreSQL HA presets, the read service is also available (Bitnam
 ### Uninstall
 
 ```bash
-helm uninstall pg -n gg-datastores || true
-helm uninstall redis -n gg-datastores || true
+helm uninstall pg -n <namespace> || true
+helm uninstall redis -n <namespace> || true
 ```
 
 This deletes only the Helm releases. PersistentVolumes may remain depending on your `reclaimPolicy` and release settings.
