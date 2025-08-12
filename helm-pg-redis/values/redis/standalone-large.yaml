@@ -1,5 +1,7 @@
 architecture: standalone
 
+image:
+  repository: docker.io/bitnamilegacy/redis
 auth:
   enabled: true
 
