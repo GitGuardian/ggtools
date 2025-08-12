@@ -43,6 +43,15 @@ You can customize storage classes, resource requests/limits, and replica counts 
 - Cluster capacity matching the selected preset(s)
 - A Kubernetes namespace where PostgreSQL, Redis, and the GitGuardian application will be installed.
   - Example: `kubectl create ns gitguardian`
+- An image pull secret named `gim-replicated-registry` in `<namespace>` to download the PostgreSQL image:
+  ```bash
+  LICENSE_ID="<your_licenseID>"
+  echo "{\"auths\": {\"proxy.replicated.com\": {\"auth\": \"$(echo -n \"${LICENSE_ID}:${LICENSE_ID}\" | base64)\"}, \"registry.replicated.com\": {\"auth\": \"$(echo -n \"${LICENSE_ID}:${LICENSE_ID}\" | base64)\"}}}" > ~/.docker/config.json
+  kubectl -n <namespace> create secret generic gim-replicated-registry \
+    --from-file=.dockerconfigjson=$HOME/.docker/config.json \
+    --type=kubernetes.io/dockerconfigjson
+  ```
+  - If you need help obtaining your LICENSE_ID, contact support at support@gitguardian.com.
 
 ### Quick start
 
@@ -60,11 +69,6 @@ kubectl get ns <namespace>
 Edit the YAML presets under `values/postgres/` (and `values/redis/` later) to fit your environment. Typical edits include `auth.username`, `auth.database`, `persistence.storageClass`, `persistence.size`, and `resources`.
 
 3) Install PostgreSQL (choose topology and size):
-
-```bash
-helm template --namespace <namespace> -f local-values.yaml -s templates/image-pull-secrets.yaml oci://registry.replicated.com/gitguardian/gitguardian > local_secrets.yaml
-kubectl --namespace <namespace> apply -f ./local_secrets.yaml
-```
 
 ```bash
 # Standalone (PoC/testing) - small preset
