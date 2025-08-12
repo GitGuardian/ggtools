@@ -160,6 +160,9 @@ OPTIONS:
     --reuse
         Use existing templates if preflights have been played before
 
+    --save-local-preflights-output
+        Save the local preflights output in the current directory
+
     --nosave
         Do not save results in-cluster (not recommended)
 
@@ -190,6 +193,7 @@ REMOTE_CHECKS="yes"
 VALUES_FILES=""
 FORCE="yes"
 SAVE="yes"
+SAVE_LOCAL_PREFLIGHTS_OUTPUT="no"
 DEBUG_MODE="no"
 INSTALL_JQ="no"
 INSTALL_HELM="no"
@@ -223,6 +227,10 @@ while (("$#")); do
     ;;
   --reuse)
     FORCE="no"
+    shift
+    ;;
+  --save-local-preflights-output)
+    SAVE_LOCAL_PREFLIGHTS_OUTPUT="yes"
     shift
     ;;
   --install-jq)
@@ -387,11 +395,15 @@ then
     LOCAL_CHECKS_STATUS="error"
     exit_ko
   fi
+  if [[ "$SAVE_LOCAL_PREFLIGHTS_OUTPUT" == "no" ]];
+  then
+    rm -f $script_dir/preflightbundle-*.tar.gz
+  fi
 fi
 
 if [[ "$REMOTE_CHECKS" == "yes" ]];
 then
-  if ! run_hide_output "jq --version" "all";
+  if ! jq --version &>/dev/null;
   then
     if [[ "$INSTALL_JQ" == "no" ]];
     then
@@ -423,7 +435,7 @@ then
   echo -e "If this step is too long, please check the pod is running in the accurate namespace"
   echo -e "Please wait ..."
   #Start job
-  run_hide_output "kubectl create job $NAMESPACE --from=cronjob/$REMOTE_CRONJOB_NAME $REMOTE_CRONJOB_NAME-`mktemp -u XXXXX | tr '[:upper:]' '[:lower:]'` --dry-run=client -o json | jq 'del(.metadata.ownerReferences)' | kubectl apply -f -" "all"
+  run_hide_output "kubectl create job $NAMESPACE --from=cronjob/$REMOTE_CRONJOB_NAME $REMOTE_CRONJOB_NAME-`mktemp -u XXXXXX | tr '[:upper:]' '[:lower:]'` --dry-run=client -o json | jq 'del(.metadata.ownerReferences)' | kubectl apply -f -" "all"
   sleep 5
   pod=$(kubectl get pods $NAMESPACE -l gitguardian=remote-preflight --sort-by=.metadata.creationTimestamp -o 'jsonpath={.items[-1].metadata.name}')
 
@@ -456,7 +468,7 @@ then
   done
 
   # Print preflights output
-  output=`kubectl logs $NAMESPACE $pod`
+  output=`kubectl logs $NAMESPACE $pod -c remote-preflight`
   echo -e "$output"
   GLOBAL_OUTPUT+="
 --- RUNNING REMOTE TESTS$output"
