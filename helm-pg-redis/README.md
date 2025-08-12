@@ -68,12 +68,14 @@ Edit the YAML presets under `values/postgres/` (and `values/redis/` later) to fi
 # Standalone (PoC/testing) - small preset
 helm upgrade --install pg bitnami/postgresql \
   -n <namespace> \
+  -f helm-pg-redis/values/postgres/common.yaml \
   -f helm-pg-redis/values/postgres/standalone-small.yaml \
   --wait
 
 # HA (recommended for production) - medium preset
 helm upgrade --install pg bitnami/postgresql \
   -n <namespace> \
+  -f helm-pg-redis/values/postgres/common.yaml \
   -f helm-pg-redis/values/postgres/ha-medium.yaml \
   --wait
 ```

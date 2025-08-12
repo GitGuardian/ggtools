@@ -15,4 +15,8 @@ primary:
     limits:
       cpu: "8000m"
       memory: "32Gi"
-
+  extendedConfiguration: |-
+    max_connections = 500
+    shared_buffers = 128MB
+    timezone = 'UTC'
+    idle_in_transaction_session_timeout = '1h'
