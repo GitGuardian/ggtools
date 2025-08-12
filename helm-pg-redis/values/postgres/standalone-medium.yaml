@@ -1,0 +1,18 @@
+architecture: standalone
+
+auth:
+  username: gitguardian-user
+  database: gitguardian-db
+
+primary:
+  persistence:
+    enabled: true
+    size: 250Gi
+  resources:
+    requests:
+      cpu: "8000m"
+      memory: "32Gi"
+    limits:
+      cpu: "8000m"
+      memory: "32Gi"
+

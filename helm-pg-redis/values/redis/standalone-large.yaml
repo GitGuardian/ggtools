@@ -1,0 +1,17 @@
+architecture: standalone
+
+auth:
+  enabled: true
+
+master:
+  persistence:
+    enabled: true
+    size: 100Gi
+  resources:
+    requests:
+      cpu: "8000m"
+      memory: "16Gi"
+    limits:
+      cpu: "8000m"
+      memory: "16Gi"
+

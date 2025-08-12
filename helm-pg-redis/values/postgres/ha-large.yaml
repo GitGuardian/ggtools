@@ -1,0 +1,31 @@
+architecture: replication
+
+auth:
+  username: gitguardian-user
+  database: gitguardian-db
+
+primary:
+  persistence:
+    enabled: true
+    size: 300Gi
+  resources:
+    requests:
+      cpu: "16000m"
+      memory: "64Gi"
+    limits:
+      cpu: "16000m"
+      memory: "64Gi"
+
+readReplicas:
+  replicaCount: 1
+  persistence:
+    enabled: true
+    size: 300Gi
+  resources:
+    requests:
+      cpu: "8000m"
+      memory: "32Gi"
+    limits:
+      cpu: "8000m"
+      memory: "32Gi"
+
