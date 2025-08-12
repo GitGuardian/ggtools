@@ -9,4 +9,4 @@ pygitguardian==1.19.0
 requests==2.32.3
 typing-inspect==0.9.0
 typing_extensions==4.12.2
-urllib3==2.3.0
+urllib3==2.5.0
