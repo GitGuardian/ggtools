@@ -1,0 +1,61 @@
+# Common PostgreSQL image and initContainers configuration shared by all presets
+
+image:
+  registry: proxy.replicated.com/proxy/gitguardian/513715405986.dkr.ecr.us-west-2.amazonaws.com
+  repository: services/postgres-pgvector
+  tag: '16-v0.8.0'
+  pullSecrets:
+    - 'gim-replicated-registry'
+
+  initContainers:
+    - name: extensions
+      image: proxy.replicated.com/proxy/gitguardian/513715405986.dkr.ecr.us-west-2.amazonaws.com/services/postgres-pgvector:16-v0.8.0
+      imagePullPolicy: '{{ $.Values.image.pullPolicy }}'
+      imagePullSecrets: 'gim-replicated-registry'
+      restartPolicy: Always
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        privileged: false
+        readOnlyRootFilesystem: true
+        runAsGroup: 1001
+        runAsNonRoot: true
+        runAsUser: 1001
+        seLinuxOptions: {}
+        seccompProfile:
+          type: RuntimeDefault
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+      command:
+        - /bin/sh
+        - -c
+        - |
+          until pg_isready; do
+            echo "Waiting for PostgreSQL..."
+            sleep 3
+          done
+          echo "Creating pgvector extension..."
+          psql -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          echo "pgvector setup done."
+          echo "Sleeping..."
+          sleep infinity
+      env:
+        - name: PGHOST
+          value: 'postgresql'
+        - name: PGPORT
+          value: 5432
+        - name: PGUSER
+          value: postgres
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: 'postgresql'
+              key: 'postgres-password'
+        - name: PGDATABASE
+          value: gitguardian-db
+
+
