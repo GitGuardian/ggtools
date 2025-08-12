@@ -264,6 +264,10 @@ def add_member_to_team(
     Add a member to the team
     """
 
+    if member.access_level in (AccessLevel.OWNER, AccessLevel.MANAGER):
+        is_team_leader = True
+        incident_permission = IncidentPermission.FULL_ACCESS
+
     payload = CreateTeamMember(
         member_id=member.id,
         is_team_leader=is_team_leader,
