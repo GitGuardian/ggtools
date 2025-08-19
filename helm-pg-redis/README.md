@@ -46,8 +46,9 @@ You can customize storage classes, resource requests/limits, and replica counts 
 - An image pull secret named `gim-replicated-registry` in `<namespace>` to download the PostgreSQL image:
   ```bash
   LICENSE_ID="<your_licenseID>"
+  NAMESPACE=<namespace>
   echo "{\"auths\": {\"proxy.replicated.com\": {\"auth\": \"$(echo -n \"${LICENSE_ID}:${LICENSE_ID}\" | base64)\"}, \"registry.replicated.com\": {\"auth\": \"$(echo -n \"${LICENSE_ID}:${LICENSE_ID}\" | base64)\"}}}" > ~/.docker/config.json
-  kubectl -n <namespace> create secret generic gim-replicated-registry \
+  kubectl -n $NAMESPACE create secret generic gim-replicated-registry \
     --from-file=.dockerconfigjson=$HOME/.docker/config.json \
     --type=kubernetes.io/dockerconfigjson
   ```
@@ -57,11 +58,12 @@ You can customize storage classes, resource requests/limits, and replica counts 
 
 Use the commands below to install Bitnami charts with the preset values files. Replace `<namespace>` accordingly.
 
-1) Add Bitnami repo (if not already added) and create a namespace:
+1) Add Bitnami repo (if not already added) and create/use a namespace:
 
 ```bash
 helm repo add bitnami https://charts.bitnami.com/bitnami && helm repo update
-kubectl get ns <namespace>
+NAMESPACE=<namespace>
+kubectl get ns "$NAMESPACE" >/dev/null 2>&1 || kubectl create ns "$NAMESPACE"
 ```
 
 2) Optional: customize a values file
@@ -73,14 +75,14 @@ Edit the YAML presets under `values/postgres/` (and `values/redis/` later) to fi
 ```bash
 # Standalone (PoC/testing) - small preset
 helm upgrade --install pg bitnami/postgresql \
-  -n <namespace> \
+  -n "$NAMESPACE" \
   -f helm-pg-redis/values/postgres/common.yaml \
   -f helm-pg-redis/values/postgres/standalone-small.yaml \
   --wait
 
 # HA (recommended for production) - medium preset
 helm upgrade --install pg bitnami/postgresql \
-  -n <namespace> \
+  -n "$NAMESPACE" \
   -f helm-pg-redis/values/postgres/common.yaml \
   -f helm-pg-redis/values/postgres/ha-medium.yaml \
   --wait
@@ -91,13 +93,13 @@ helm upgrade --install pg bitnami/postgresql \
 ```bash
 # Standalone - small preset
 helm upgrade --install redis bitnami/redis \
-  -n <namespace> \
+  -n "$NAMESPACE" \
   -f helm-pg-redis/values/redis/standalone-small.yaml \
   --wait
 
 # Standalone - large preset
 helm upgrade --install redis bitnami/redis \
-  -n <namespace> \
+  -n "$NAMESPACE" \
   -f helm-pg-redis/values/redis/standalone-large.yaml \
   --wait
 ```
@@ -105,7 +107,7 @@ helm upgrade --install redis bitnami/redis \
 5) Retrieve credentials and assemble connection strings:
 
 ```bash
-NAMESPACE=<namespace>
+NAMESPACE="$NAMESPACE"
 
 # PostgreSQL
 PG_RELEASE=pg
@@ -152,11 +154,11 @@ If you use the PostgreSQL HA presets, the read service is also available (Bitnam
 
 ### Uninstall
 
-Replace `<namespace>` accordingly.
+Replace $NAMESPACE accordingly.
 
 ```bash
-helm uninstall pg -n <namespace> || true
-helm uninstall redis -n <namespace> || true
+helm uninstall pg -n $NAMESPACE || true
+helm uninstall redis -n $NAMESPACE || true
 ```
 
 This deletes only the Helm releases. PersistentVolumes may remain depending on your `reclaimPolicy` and release settings.

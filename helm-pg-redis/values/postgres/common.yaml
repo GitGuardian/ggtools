@@ -1,4 +1,7 @@
 # Common PostgreSQL image and initContainers configuration shared by all presets
+global:
+  security:
+    allowInsecureImages: true
 
 image:
   registry: proxy.replicated.com/proxy/gitguardian/513715405986.dkr.ecr.us-west-2.amazonaws.com
@@ -57,5 +60,3 @@ image:
               key: 'postgres-password'
         - name: PGDATABASE
           value: gitguardian-db
-
-

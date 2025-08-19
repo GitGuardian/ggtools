@@ -1,0 +1,7 @@
+# Common Redis image and initContainers configuration shared by all presets
+
+global:
+  security:
+    allowInsecureImages: true
+
+image:
