@@ -94,12 +94,14 @@ helm upgrade --install pg bitnami/postgresql \
 # Standalone - small preset
 helm upgrade --install redis bitnami/redis \
   -n "$NAMESPACE" \
+  -f helm-pg-redis/values/redis/common.yaml \
   -f helm-pg-redis/values/redis/standalone-small.yaml \
   --wait
 
 # Standalone - large preset
 helm upgrade --install redis bitnami/redis \
   -n "$NAMESPACE" \
+  -f helm-pg-redis/values/redis/common.yaml \
   -f helm-pg-redis/values/redis/standalone-large.yaml \
   --wait
 ```
