@@ -1,0 +1,18 @@
+architecture: standalone
+
+primary:
+  persistence:
+    enabled: true
+    size: 300Gi
+  resources:
+    requests:
+      cpu: "16000m"
+      memory: "64Gi"
+    limits:
+      cpu: "16000m"
+      memory: "64Gi"
+  extendedConfiguration: |-
+    max_connections = 500
+    shared_buffers = 128MB
+    timezone = 'UTC'
+    idle_in_transaction_session_timeout = '1h'
