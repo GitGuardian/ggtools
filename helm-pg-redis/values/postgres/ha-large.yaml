@@ -1,0 +1,36 @@
+architecture: replication
+
+primary:
+  persistence:
+    enabled: true
+    size: 300Gi
+  resources:
+    requests:
+      cpu: "16000m"
+      memory: "64Gi"
+    limits:
+      cpu: "16000m"
+      memory: "64Gi"
+  extendedConfiguration: |-
+    max_connections = 500
+    shared_buffers = 128MB
+    timezone = 'UTC'
+    idle_in_transaction_session_timeout = '1h'
+
+readReplicas:
+  replicaCount: 1
+  persistence:
+    enabled: true
+    size: 300Gi
+  resources:
+    requests:
+      cpu: "8000m"
+      memory: "32Gi"
+    limits:
+      cpu: "8000m"
+      memory: "32Gi"
+  extendedConfiguration: |-
+    max_connections = 500
+    shared_buffers = 128MB
+    timezone = 'UTC'
+    idle_in_transaction_session_timeout = '1h'
