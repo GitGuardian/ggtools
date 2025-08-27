@@ -325,7 +325,6 @@ def synchronize_team_members(
                     invitation_by_id[team_invitation.invitation_id].email,
                 )
 
-            team_id = gg_team.id
             for member in members_to_add:
                 # If the member exists in GitGuardian, we can add him to the team
                 if member in members_by_emails:
@@ -351,7 +350,7 @@ def synchronize_team_members(
                     None,
                 )
                 if team_member_id:
-                    remove_team_member(team_id, team_member_id)
+                    remove_team_member(gg_team, team_member_id)
 
 
 def infer_gitlab_email(
