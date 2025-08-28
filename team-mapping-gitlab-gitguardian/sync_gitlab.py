@@ -1,11 +1,9 @@
 import json
 import logging
-from marshmallow.utils import is_instance_or_subclass
-import requests
-
-from typing import Iterable, TypedDict
 from collections import defaultdict
+from typing import Iterable, TypedDict
 
+import requests
 from pygitguardian.models import (
     CreateTeam,
     Detail,
@@ -16,27 +14,25 @@ from pygitguardian.models import (
     UpdateTeam,
 )
 
+from config import CONFIG
 from gitguardian_client import (
     add_member_to_team,
-    create_new_teams,
     delete_invitations,
     delete_team,
-    remove_members,
-    delete_teams_by_name,
+    list_all_invitations,
+    list_all_members,
     list_all_sources,
     list_all_team_members,
     list_all_teams,
-    list_all_members,
-    list_all_invitations,
     list_sources_by_team_id,
     list_team_invitations,
+    remove_members,
     remove_team_invitation,
     remove_team_member,
     send_invitation,
     send_team_invitation,
     update_team_source,
 )
-from config import CONFIG
 
 logger = logging.getLogger(__name__)
 
