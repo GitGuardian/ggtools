@@ -1,11 +1,10 @@
 import json
 import logging
-from marshmallow.utils import is_instance_or_subclass
-import requests
-
-from typing import Iterable, TypedDict
 from collections import defaultdict
+from typing import Iterable, TypedDict
 
+import requests
+from email_validator import EmailNotValidError, validate_email
 from pygitguardian.models import (
     CreateTeam,
     Detail,
@@ -16,27 +15,25 @@ from pygitguardian.models import (
     UpdateTeam,
 )
 
+from config import CONFIG
 from gitguardian_client import (
     add_member_to_team,
-    create_new_teams,
     delete_invitations,
     delete_team,
-    remove_members,
-    delete_teams_by_name,
+    list_all_invitations,
+    list_all_members,
     list_all_sources,
     list_all_team_members,
     list_all_teams,
-    list_all_members,
-    list_all_invitations,
     list_sources_by_team_id,
     list_team_invitations,
+    remove_members,
     remove_team_invitation,
     remove_team_member,
     send_invitation,
     send_team_invitation,
     update_team_source,
 )
-from config import CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +81,8 @@ query ($cursor: String) {
 """
 
 GitlabUserGroup = TypedDict(
-    "GitlabUserGroup", {"name": str, "email": str, "groups": list[dict[str, str | int]]}
+    "GitlabUserGroup",
+    {"name": str, "email": str | None, "groups": list[dict[str, str | int]]},
 )
 GitlabUser = TypedDict("GitlabUser", {"name": str, "email": str})
 GitlabGroup = TypedDict(
@@ -93,6 +91,23 @@ GitlabGroup = TypedDict(
 GitlabProject = TypedDict(
     "GitlabProject", {"name": str, "group": str, "fullPath": str, "id": str}
 )
+
+
+def get_valid_email(emails: Iterable[str]) -> str | None:
+    """
+    Get the first valid email address from a list of potential email addresses.
+    """
+    for email in emails:
+        try:
+            emailinfo = validate_email(email, check_deliverability=False)
+            return emailinfo.normalized
+        except EmailNotValidError as e:
+            logger.debug(
+                "Email validation failed - email: %s, error: %s",
+                email,
+                str(e),
+            )
+    return None
 
 
 def transform_gitlab_user(gitlab_user: dict) -> GitlabUserGroup:
@@ -106,9 +121,7 @@ def transform_gitlab_user(gitlab_user: dict) -> GitlabUserGroup:
 
     return {
         "name": gitlab_user["name"],
-        "email": next(
-            (email["email"] for email in gitlab_user["emails"]["nodes"]), None
-        ),
+        "email": get_valid_email(e["email"] for e in gitlab_user["emails"]["nodes"]),
         "groups": groups,
     }
 
@@ -364,11 +377,20 @@ def infer_gitlab_email(
 
     gg_member_names = {gg_member.name: gg_member for gg_member in gg_members}
 
-    for gitlab_user in gitlab_users:
-        if gitlab_user["name"] in gg_member_names and gitlab_user["email"] is None:
-            gitlab_user["email"] = gg_member_names[gitlab_user["name"]].email
+    gitlab_users_with_email = []
 
-    return [gitlab_user for gitlab_user in gitlab_users if gitlab_user["email"]]
+    for gitlab_user in gitlab_users:
+        if gitlab_user["email"] is None:
+            if gitlab_user["name"] in gg_member_names:
+                gitlab_user["email"] = gg_member_names[gitlab_user["name"]].email
+            else:
+                logger.warning(
+                    "No email nor name match for GitLab user %s", gitlab_user["name"]
+                )
+                continue
+        gitlab_users_with_email.append(gitlab_user)
+
+    return gitlab_users_with_email
 
 
 def get_gitlab_projects_per_group(
