@@ -1,5 +1,6 @@
 import logging
 import re
+from urllib.parse import parse_qs, urlparse
 from pygitguardian.models import (
     CreateInvitation,
     CreateInvitationParameters,
@@ -290,6 +291,9 @@ def update_team_sources(
 
 
 def _extract_cursor(url: str) -> str:
-    if result := re.search("(?<=cursor=)\w*(?=&)", url):
-        return result.group()
-    return ''
+    parsed_url = urlparse(url)
+    if parsed_url.query:
+        parsed_query = parse_qs(parsed_url.query)
+        if "cursor" in parsed_query and parsed_query["cursor"]:
+            return parsed_query["cursor"][0]
+    return ""
