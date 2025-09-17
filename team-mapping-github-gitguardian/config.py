@@ -2,6 +2,7 @@ import os
 import logging
 from functools import cached_property
 from pygitguardian.client import GGClient
+import requests
 from github import Auth, Github, GithubRetry
 
 
@@ -48,11 +49,26 @@ class Config:
             return value.lower() == "true"
         return True
 
+    @property
+    def reuse_connections(self) -> bool:
+        """
+        Setting to 'false' will disable HTTP connection reuse. This can help in
+        situations where a network device is closing connections and causing
+        communications errors.
+        """
+        if value := self._env("REUSE_CONNECTIONS"):
+            return value.lower() == "true"
+        return True
+
     @cached_property
     def gg_client(self) -> GGClient:
+        session = requests.Session()
+        if not self.reuse_connections:
+            session.headers = {"Connection": "close"}
         return GGClient(
             api_key=self.gitguardian_token,
             base_uri=self.gitguardian_instance,
+            session=session,
         )
 
     @cached_property
