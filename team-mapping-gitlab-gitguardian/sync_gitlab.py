@@ -1,4 +1,3 @@
-import json
 import logging
 from collections import defaultdict
 from typing import Iterable
@@ -244,8 +243,6 @@ def synchronize_sources(
             + "\n - ".join(unmonitored_projects)
         )
 
-    logger.debug("gitlab_projects_per_group: %s", json.dumps(gitlab_projects_per_group))
-
     def diff_sources(
         team: Team,
         gitlab_id: str,
@@ -271,8 +268,6 @@ def synchronize_sources(
     for team in gg_teams:
         if gitlab_id := team_gitlab_id(team):
             team_projects = gitlab_projects_per_group.get(gitlab_id, None)
-            logger.debug("Team: %r (%s)", team, gitlab_id)
-            logger.debug("Team projects: %r", team_projects)
             if team_projects is None:
                 logger.debug(
                     "No match for team: %d - %s (%s)",
@@ -320,7 +315,6 @@ def create_team_from_group(group: GitlabGroup) -> Team:
     """
     Given a Gitlab group, create the corresponding GitGuardian team
     """
-    logger.debug("create_team_from_group: %s", json.dumps(group))
     payload = CreateTeam(
         group["fullName"],
         description=team_description_from_group(group),
@@ -386,7 +380,6 @@ def synchronize_teams(
         if group_id not in teams_to_remove
     }
 
-    logger.debug("Team intersection: %s", json.dumps(list(team_intersection)))
     for team in team_intersection:
         gg_team = teams_by_external_id[team]
         group = groups_by_id[team]

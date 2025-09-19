@@ -38,12 +38,10 @@ class Config:
             logger_level = getattr(logging, logger_level_name.upper())
 
         invite_domains = {
-            s.strip() for s in os.environ.get("INVITE_DOMAINS", "").split(",")
+            domain.strip()
+            for domain in os.environ.get("INVITE_DOMAINS", "").split(",")
+            if len(domain.strip())
         }
-        try:
-            invite_domains.remove("")
-        except KeyError:
-            pass
 
         return cls(
             gitlab_token=os.environ["GITLAB_ACCESS_TOKEN"],

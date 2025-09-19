@@ -204,8 +204,8 @@ def send_invitation(
     Send an invitation to join a workspace, the invitation is sent to member_email
     """
 
-    _, _, rhs = member_email.partition("@")
-    if CONFIG.invite_domains and rhs not in CONFIG.invite_domains:
+    domain = member_email.rsplit("@", 1)[-1]
+    if CONFIG.invite_domains and domain not in CONFIG.invite_domains:
         logger.info("Email doesn't match invite domains: %s", member_email)
         return None
 

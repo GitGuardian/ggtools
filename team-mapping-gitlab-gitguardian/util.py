@@ -34,10 +34,10 @@ GitlabGroup = TypedDict(
 GitlabProject = TypedDict(
     "GitlabProject",
     {
-        "name": str,
-        "group": str,
-        "fullPath": str,
         "id": str,
+        "name": str,
+        "fullPath": str,
+        "group": str | None,
     },
 )
 
