@@ -38,11 +38,11 @@ Optional environment variables:
 - `GITGUARDIAN_INSTANCE` - The URL of a self-hosted GitGuardian instance. Just the scheme and hostname: https://gitguardian.example.com
 - `SEND_EMAIL` - Defines whether we should send an email to users when sending invitations
 - `REMOVE_MEMBERS` - Defines whether we should delete users from teams if they are not in any Gitlab group
-- `EXCLUDE_ADMIN` - Defines whether we should exclude admin users from sync
 - `DEFAULT_INCIDENT_PERMISSION` - Defines the default incident permission level for team members, defaults to `can_edit`, it's value must be one of :
   - `can_view` : For read permissions
   - `can_edit` : For read and write permissions
   - `full_access` : For manager permissions
+- `INVITE_DOMAINS`: A comma-separated list of domains to match when inviting users to the platform.
 
 In order to ensure you have the correct configuration, you can run the following command to display the configuration:
 

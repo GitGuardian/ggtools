@@ -4,8 +4,12 @@ import os
 from pygitguardian.client import GGClient
 from functools import cached_property
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from pygitguardian.models import IncidentPermission
+
+GG_SAAS_HOSTNAMES = {"api.gitguardian.com", "dashboard.gitguardian.com"}
+GG_EU_SAAS_HOSTNAMES = {"api.eu1.gitguardian.com", "dashboard.eu1.gitguardian.com"}
 
 
 @dataclass
@@ -56,7 +60,14 @@ class Config:
 
     @cached_property
     def client(self):
-        return GGClient(api_key=self.gitguardian_api_key, base_uri=self.gitguardian_url)
+        parsed = urlparse(self.gitguardian_url)
+        if parsed.hostname in GG_SAAS_HOSTNAMES:
+            gitguardian_url = "https://api.gitguardian.com"
+        elif parsed.hostname in GG_EU_SAAS_HOSTNAMES:
+            gitguardian_url = "https://api.eu1.gitguardian.com"
+        else:
+            gitguardian_url = f"{parsed.scheme}://{parsed.hostname}/exposed"
+        return GGClient(api_key=self.gitguardian_api_key, base_uri=gitguardian_url)
 
     def __repr__(self):
         return (
