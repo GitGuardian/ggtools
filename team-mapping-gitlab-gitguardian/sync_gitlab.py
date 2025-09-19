@@ -1,10 +1,8 @@
 import json
 import logging
 from collections import defaultdict
-from typing import Iterable, TypedDict
+from typing import Iterable
 
-import requests
-from email_validator import EmailNotValidError, validate_email
 from pygitguardian.models import (
     CreateTeam,
     Detail,
@@ -32,109 +30,18 @@ from gitguardian_client import (
     remove_team_member,
     send_invitation,
     send_team_invitation,
+    team_gitlab_id,
     update_team_source,
+)
+from gitlab_client import fetch_gitlab_projects, fetch_gitlab_users
+from util import (
+    GitlabGroup,
+    GitlabProject,
+    GitlabUserGroup,
+    team_description_from_group,
 )
 
 logger = logging.getLogger(__name__)
-
-GITLAB_USER_GRAPHQL_QUERY = """
-query ($cursor: String, $admins: Boolean) {
-    users(first: 100, after: $cursor, humans: true, admins: $admins) {
-        pageInfo {
-            endCursor
-        }
-        nodes {
-            name
-            emails {
-                nodes {
-                    email
-                }
-            }
-            groups {
-                nodes {
-                    id
-                    fullPath
-                }
-            }
-        }
-    }
-}
-"""
-
-GITLAB_PROJECT_GRAPHQL_QUERY = """
-query ($cursor: String) {
-    projects(after: $cursor, first: 100) {
-        pageInfo {
-            endCursor
-        }
-        nodes {
-            id
-            name
-            fullPath
-            group {
-                name
-                fullPath
-            }
-        }
-    }
-}
-"""
-
-GitlabUserGroup = TypedDict(
-    "GitlabUserGroup",
-    {"name": str, "email": str | None, "groups": list[dict[str, str | int]]},
-)
-GitlabUser = TypedDict("GitlabUser", {"name": str, "email": str})
-GitlabGroup = TypedDict(
-    "GitlabGroup", {"id": str, "fullPath": str, "users": list[GitlabUser]}
-)
-GitlabProject = TypedDict(
-    "GitlabProject", {"name": str, "group": str, "fullPath": str, "id": str}
-)
-
-
-def get_valid_email(emails: Iterable[str]) -> str | None:
-    """
-    Get the first valid email address from a list of potential email addresses.
-    """
-    for email in emails:
-        try:
-            emailinfo = validate_email(email, check_deliverability=False)
-            return emailinfo.normalized
-        except EmailNotValidError as e:
-            logger.debug(
-                "Email validation failed - email: %s, error: %s",
-                email,
-                str(e),
-            )
-    return None
-
-
-def transform_gitlab_user(gitlab_user: dict) -> GitlabUserGroup:
-    """
-    Transform the GraphQL representation of a User to a simpler dictionary
-    """
-
-    groups = gitlab_user.get("groups", {}).get("nodes", [])
-    for group in groups:
-        group["fullPath"] = " / ".join(group["fullPath"].split("/"))
-
-    return {
-        "name": gitlab_user["name"],
-        "email": get_valid_email(e["email"] for e in gitlab_user["emails"]["nodes"]),
-        "groups": groups,
-    }
-
-
-def transform_gitlab_project(gitlab_project: dict) -> GitlabProject:
-    group = gitlab_project["group"] or {"name": None}
-    full_path = " / ".join(gitlab_project["fullPath"].split("/"))
-    return {
-        "id": gitlab_project["id"].split("/")[-1],
-        "name": gitlab_project["name"],
-        "fullPath": full_path,
-        "group": group["name"],
-    }
 
 
 def map_gitlab_groups(
@@ -154,6 +61,7 @@ def map_gitlab_groups(
                 if group[selector] not in res:
                     res[group[selector]] = {
                         "id": group["id"],
+                        "fullName": group["fullName"],
                         "fullPath": group["fullPath"],
                         "users": [],
                     }
@@ -169,120 +77,19 @@ def map_gitlab_groups(
     return gitlab_group_by_id
 
 
-def fetch_gitlab_users() -> list[GitlabUserGroup]:
-    """
-    Fetch all Gitlab users and their groups using GraphQL, iterate on pagination if needed
-    """
-
-    users = []
-
-    url = f"{CONFIG.gitlab_url}/api/graphql"
-    headers = {"Authorization": f"Bearer {CONFIG.gitlab_token}"}
-
-    default_variables = {
-        "admins": CONFIG.exclude_admin,
-    }
-    response = requests.post(
-        url=url,
-        json={"query": GITLAB_USER_GRAPHQL_QUERY, "variables": default_variables},
-        headers=headers,
-        timeout=60,
-    )
-    response.raise_for_status()
-
-    data = response.json()
-    end_cursor = data["data"]["users"]["pageInfo"]["endCursor"]
-    users.extend(
-        [transform_gitlab_user(user) for user in data["data"]["users"]["nodes"]]
-    )
-
-    while end_cursor:
-        response = requests.post(
-            url=f"{CONFIG.gitlab_url}/api/graphql",
-            json={
-                "query": GITLAB_USER_GRAPHQL_QUERY,
-                "variables": {"cursor": end_cursor, **default_variables},
-            },
-            headers=headers,
-        )
-        response.raise_for_status()
-
-        data = response.json()
-        end_cursor = data["data"]["users"]["pageInfo"]["endCursor"]
-        users.extend(
-            [transform_gitlab_user(user) for user in data["data"]["users"]["nodes"]]
-        )
-
-    return users
-
-
-def fetch_gitlab_projects() -> list[GitlabProject]:
-    """
-    Fetch all gitlab projects and their groups using GraphQL, iterate on pagination if needed
-    """
-
-    projects: list[GitlabProject] = []
-
-    url = f"{CONFIG.gitlab_url}/api/graphql"
-    headers = {"Authorization": f"Bearer {CONFIG.gitlab_token}"}
-
-    default_variables = {
-        "admins": CONFIG.exclude_admin,
-    }
-    response = requests.post(
-        url=url,
-        json={"query": GITLAB_PROJECT_GRAPHQL_QUERY, "variables": default_variables},
-        headers=headers,
-        timeout=60,
-    )
-    response.raise_for_status()
-
-    data = response.json()
-    end_cursor = data["data"]["projects"]["pageInfo"]["endCursor"]
-    projects.extend(
-        [
-            transform_gitlab_project(project)
-            for project in data["data"]["projects"]["nodes"]
-            if project["group"] is not None
-        ]
-    )
-
-    while end_cursor:
-        response = requests.post(
-            url=url,
-            json={
-                "query": GITLAB_PROJECT_GRAPHQL_QUERY,
-                "variables": {"cursor": end_cursor, **default_variables},
-            },
-            headers=headers,
-            timeout=60,
-        )
-        response.raise_for_status()
-
-        data = response.json()
-        end_cursor = data["data"]["projects"]["pageInfo"]["endCursor"]
-        projects.extend(
-            [
-                transform_gitlab_project(project)
-                for project in data["data"]["projects"]["nodes"]
-                if project["group"] is not None
-            ]
-        )
-
-    return projects
-
-
-def list_group_members(gitlab_users: list[GitlabUser]) -> dict[str, set[str]]:
+def list_group_members(
+    gitlab_users: list[GitlabUserGroup],
+) -> dict[str, set[str | None]]:
     """
     From the list of Gitlab users, reverse the mapping and create a dictionary
-    where the keys are the groups' name and the values are the members' email
+    where the keys are the groups' full name and the values are the members' email
     """
 
     group_members = defaultdict(set)
 
     for user in gitlab_users:
         for group in user["groups"]:
-            group_members[group["fullPath"]].add(user["email"])
+            group_members[group["fullName"]].add(user["email"])
 
     return group_members
 
@@ -339,6 +146,8 @@ def synchronize_team_members(
                 )
 
             for member in members_to_add:
+                if not member:
+                    continue
                 # If the member exists in GitGuardian, we can add him to the team
                 if member in members_by_emails:
                     gg_member = members_by_emails[member]
@@ -347,10 +156,11 @@ def synchronize_team_members(
                 # Else we need to send an invitation to the workspace and to the team
                 else:
                     if member not in invitation_by_emails:
-                        invitation = send_invitation(member)
-                        invitation_by_emails[member] = invitation
+                        if invitation := send_invitation(member):
+                            invitation_by_emails[member] = invitation
 
-                    send_team_invitation(invitation_by_emails[member], gg_team)
+                    if member in invitation_by_emails:
+                        send_team_invitation(invitation_by_emails[member], gg_team)
 
             # Members we could not find in Gitlab will be removed from the GitGuardian team
             for member in members_to_remove:
@@ -400,7 +210,7 @@ def get_gitlab_projects_per_group(
     Transform a list of project into a map of group name to projects
     """
 
-    projects_per_group: dict[str, list[GitlabProject]] = dict()
+    projects_per_group: dict[str, list[GitlabProject]] = {}
 
     for project in gitlab_projects:
         if project["group"] not in projects_per_group:
@@ -411,7 +221,7 @@ def get_gitlab_projects_per_group(
 
 
 def synchronize_sources(
-    gg_teams: Iterable[Team], sources_by_team_id: dict[id, list[Source]]
+    gg_teams: Iterable[Team], sources_by_team_id: dict[int, list[Source]]
 ):
     """
     Given all GitGuardian teams, synchronize the list of sources attached
@@ -420,44 +230,68 @@ def synchronize_sources(
 
     gitlab_projects = fetch_gitlab_projects()
     gitlab_project_ids = {gitlab_project["id"] for gitlab_project in gitlab_projects}
-    available_sources = list_all_sources()
-    source_ids = {source.external_id for source in available_sources}
+    sources_by_external_id = {
+        source.external_id: source for source in list_all_sources()
+    }
+    source_external_ids = set(sources_by_external_id.keys())
 
     gitlab_projects_per_group = get_gitlab_projects_per_group(gitlab_projects)
 
-    unavailable_projects = gitlab_project_ids - source_ids
-    if unavailable_projects:
+    unmonitored_projects = gitlab_project_ids - source_external_ids
+    if unmonitored_projects:
         logger.warning(
-            "The following projects are not available in GitGuardian:"
-            + "\n - ".join(unavailable_projects)
+            "The following projects are not monitored by GitGuardian:"
+            + "\n - ".join(unmonitored_projects)
         )
 
-    all_sources_by_external_id = {
-        source.external_id: source for source in available_sources
-    }
+    logger.debug("gitlab_projects_per_group: %s", json.dumps(gitlab_projects_per_group))
 
-    for team in gg_teams:
-        team_projects = gitlab_projects_per_group.get(team.name, None)
-        if team_projects is None:
-            continue
-
+    def diff_sources(
+        team: Team,
+        gitlab_id: str,
+    ) -> tuple[list[int], list[int]]:
         team_sources = sources_by_team_id[team.id]
 
         project_ids = {
             project["id"]
-            for project in gitlab_projects_per_group[team.name]
-            if project["id"] not in unavailable_projects
+            for project in gitlab_projects_per_group[gitlab_id]
+            if project["id"] not in unmonitored_projects
         }
         team_source_ids = {source.external_id for source in team_sources}
 
         sources_to_add = [
-            all_sources_by_external_id[id].id for id in (project_ids - team_source_ids)
+            sources_by_external_id[id].id for id in (project_ids - team_source_ids)
         ]
         sources_to_delete = [
-            all_sources_by_external_id[id].id for id in (team_source_ids - project_ids)
+            sources_by_external_id[id].id for id in (team_source_ids - project_ids)
         ]
 
-        update_team_source(team, sources_to_add, sources_to_delete)
+        return sources_to_add, sources_to_delete
+
+    for team in gg_teams:
+        if gitlab_id := team_gitlab_id(team):
+            team_projects = gitlab_projects_per_group.get(gitlab_id, None)
+            logger.debug("Team: %r (%s)", team, gitlab_id)
+            logger.debug("Team projects: %r", team_projects)
+            if team_projects is None:
+                logger.debug(
+                    "No match for team: %d - %s (%s)",
+                    team.id,
+                    team.name,
+                    team.description,
+                )
+                continue
+            sources_to_add, sources_to_delete = diff_sources(team, gitlab_id)
+            if sources_to_add or sources_to_delete:
+                update_team_source(team, sources_to_add, sources_to_delete)
+        else:
+            logger.debug(
+                "No GitLab ID for team: %d - %s (%s)",
+                team.id,
+                team.name,
+                team.description,
+            )
+            continue
 
 
 def invite_new_members(
@@ -478,23 +312,27 @@ def invite_new_members(
     )
 
     for member_email in members_to_invite:
-        send_invitation(member_email)
+        if member_email:
+            send_invitation(member_email)
 
 
 def create_team_from_group(group: GitlabGroup) -> Team:
     """
     Given a Gitlab group, create the corresponding GitGuardian team
     """
-    metadata = {key: value for key, value in group.items() if key != "users"}
-    payload = CreateTeam(group["fullPath"], description=json.dumps(metadata))
+    logger.debug("create_team_from_group: %s", json.dumps(group))
+    payload = CreateTeam(
+        group["fullName"],
+        description=team_description_from_group(group),
+    )
     response = CONFIG.client.create_team(payload)
 
     if isinstance(response, Detail):
         raise RuntimeError(
-            f"Unable to create team {group['fullPath']}: {response.detail}"
+            f"Unable to create team {group['fullName']}: {response.detail}"
         )
 
-    logger.info(f"Successfully created team {group['fullPath']}")
+    logger.info(f"Successfully created team {group['fullName']}")
     return response
 
 
@@ -503,18 +341,19 @@ def rename_team_from_group(team: Team, group: GitlabGroup) -> Team:
     Given a GitGuardian team and a Gitlab group, rename the GitGuardian team to
     match the Gitlab group full path
     """
-    metadata = {key: value for key, value in group.items() if key != "users"}
     payload = UpdateTeam(
-        team.id, name=group["fullPath"], description=json.dumps(metadata)
+        team.id,
+        name=group["fullName"],
+        description=team_description_from_group(group),
     )
     response = CONFIG.client.update_team(payload)
 
     if isinstance(response, Detail):
         raise RuntimeError(
-            f"Unable to rename team {group['fullPath']}: {response.detail}"
+            f"Unable to rename team {group['fullName']}: {response.detail}"
         )
 
-    logger.info(f"Successfully renamed team from {team.name} to {group['fullPath']}")
+    logger.info(f"Successfully renamed team from {team.name} to {group['fullName']}")
     return response
 
 
@@ -533,45 +372,50 @@ def synchronize_teams(
     teams_to_remove = set(teams_by_external_id.keys()) - set(groups_by_id.keys())
     team_intersection = set(teams_by_external_id.keys()) & set(groups_by_id.keys())
 
-    for team in teams_to_add:
-        group = groups_by_id[team]
-        teams_by_external_id[group["id"]] = create_team_from_group(groups_by_id[team])
-    for team in teams_to_remove:
-        delete_team(teams_by_external_id[team])
+    for group_id in teams_to_add:
+        group = groups_by_id[group_id]
+        teams_by_external_id[group["id"]] = create_team_from_group(
+            groups_by_id[group_id]
+        )
+    for group_id in teams_to_remove:
+        delete_team(teams_by_external_id[group_id])
 
     teams_by_external_id = {
-        id: team
-        for id, team in teams_by_external_id.items()
-        if id not in teams_to_remove
+        group_id: team
+        for group_id, team in teams_by_external_id.items()
+        if group_id not in teams_to_remove
     }
 
+    logger.debug("Team intersection: %s", json.dumps(list(team_intersection)))
     for team in team_intersection:
         gg_team = teams_by_external_id[team]
         group = groups_by_id[team]
 
-        if gg_team.name != group["fullPath"]:
-            teams_by_external_id[group["fullPath"]] = rename_team_from_group(
-                gg_team, group
-            )
+        if gg_team.name != group["fullName"]:
+            teams_by_external_id[group["id"]] = rename_team_from_group(gg_team, group)
 
     return list(teams_by_external_id.values())
 
 
 def main():
+    logger.info("Fetching GitGuardian data")
     gg_teams, teams_by_external_id = list_all_teams()
     gg_members = list_all_members()
     gg_source_by_team_id = list_sources_by_team_id(gg_teams)
 
+    logger.info("Fetching GitLab data")
     gitlab_users = infer_gitlab_email(fetch_gitlab_users(), gg_members)
     gitlab_user_emails = {gitlab_user["email"] for gitlab_user in gitlab_users}
     gitlab_group_by_id = map_gitlab_groups(gitlab_users)
 
+    logger.info("Synchronizing GitGuardian teams")
     available_teams = synchronize_teams(teams_by_external_id, gitlab_group_by_id)
 
     # Delete or deactivate members we cannot find in gitlab anymore
     members_to_delete = [
         member for member in gg_members if member.email not in gitlab_user_emails
     ]
+    logger.info("Removing members from GitGuardian")
     remove_members(members_to_delete)
 
     member_ids_to_delete = {member.id for member in members_to_delete}
@@ -579,8 +423,10 @@ def main():
         member for member in gg_members if member.id not in member_ids_to_delete
     ]
 
+    logger.info("Inviting new members to GitGuardian")
     invite_new_members(gitlab_users, gg_members)
 
+    logger.info("Synchronizing GitGuardian team perimeters")
     synchronize_sources(available_teams, gg_source_by_team_id)
 
     gg_invitations = list_all_invitations()
@@ -590,6 +436,7 @@ def main():
         if invitation.email not in gitlab_user_emails
     ]
     invitation_ids_to_delete = {invitation.id for invitation in invitations_to_delete}
+    logger.info("Removing invitations from GitGuardian")
     delete_invitations(invitations_to_delete)
 
     gg_invitations = [
@@ -597,6 +444,7 @@ def main():
         for invitation in gg_invitations
         if invitation.id not in invitation_ids_to_delete
     ]
+    logger.info("Synchronizing GitGuardian team members")
     synchronize_team_members(gitlab_users, gg_members, available_teams, gg_invitations)
 
 

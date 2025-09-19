@@ -17,9 +17,9 @@ class Config:
     gitlab_url: str
 
     send_email: bool
-    exclude_admin: bool
+    invite_domains: set[str] | None = None
     default_incident_permission: IncidentPermission = IncidentPermission.EDIT
-    logger_level: str = logging.INFO
+    logger_level: int = logging.INFO
     remove_members: bool = False
     pagination_size: int = 100
 
@@ -29,9 +29,17 @@ class Config:
         if incident_permission_env := os.environ.get("DEFAULT_INCIDENT_PERMISSION"):
             incident_permission = IncidentPermission(incident_permission_env)
 
-        logger_level = logging._nameToLevel[
-            os.environ.get("LOG_LEVEL", logging._levelToName[cls.logger_level])
-        ]
+        logger_level = cls.logger_level
+        if logger_level_name := os.environ.get("LOG_LEVEL"):
+            logger_level = getattr(logging, logger_level_name.upper())
+
+        invite_domains = {
+            s.strip() for s in os.environ.get("INVITE_DOMAINS", "").split(",")
+        }
+        try:
+            invite_domains.remove("")
+        except KeyError:
+            pass
 
         return cls(
             gitlab_token=os.environ["GITLAB_ACCESS_TOKEN"],
@@ -41,7 +49,7 @@ class Config:
                 "GITGUARDIAN_INSTANCE", "https://api.gitguardian.com"
             ),
             send_email=os.environ.get("SEND_EMAIL", "True") == "True",
-            exclude_admin=os.environ.get("EXCLUDE_ADMIN", "True") == "True",
+            invite_domains=invite_domains,
             default_incident_permission=incident_permission,
             logger_level=logger_level,
         )
@@ -54,10 +62,10 @@ class Config:
         return (
             "Config("
             f"send_email={self.send_email}, "
+            f"invite_domains={self.invite_domains}, "
             f"gitlab_url={self.gitlab_url}, "
             f"gitlab_token={self.gitlab_token}, "
             f"logger_level={logging._levelToName[self.logger_level]}, "
-            f"exclude_admin={self.exclude_admin}, "
             f"remove_members={self.remove_members}, "
             f"gitguardian_url={self.gitguardian_url}, "
             f"gitguardian_api_key={self.gitguardian_api_key}, "

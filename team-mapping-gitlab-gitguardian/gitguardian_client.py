@@ -1,8 +1,8 @@
-import json
-from collections import defaultdict
 import logging
+from collections import defaultdict
+from typing import Any, Iterable
+from urllib.parse import parse_qs, urlparse
 
-from urllib.parse import urlparse, parse_qs
 from pygitguardian.models import (
     AccessLevel,
     CreateInvitation,
@@ -22,16 +22,12 @@ from pygitguardian.models import (
     TeamInvitation,
     TeamsParameters,
     UpdateMember,
-    UpdateTeam,
     UpdateTeamSource,
 )
-from pygitguardian.models_utils import (
-    CursorPaginatedResponse,
-    PaginationParameter,
-)
-from typing import Any, Iterable
+from pygitguardian.models_utils import CursorPaginatedResponse, PaginationParameter
 
 from config import CONFIG
+from util import team_gitlab_id
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +43,9 @@ def get_cursor(url: str) -> str | None:
 
 
 def pagination_max_results(
-    method: Any, parameter_cls=PaginationParameter, additional_parameters=dict()
+    method: Any,
+    parameter_cls=PaginationParameter,
+    additional_parameters: dict[str, str | bool] | None = None,
 ) -> list:
     """
     Iterate over all pages of a paginated response from GitGuardian API
@@ -55,6 +53,9 @@ def pagination_max_results(
     Use Parameters inheritance from PaginationParameter to loop
     on all `list` methods
     """
+
+    if additional_parameters is None:
+        additional_parameters = {}
 
     pagination_parameters = parameter_cls(
         per_page=CONFIG.pagination_size, **additional_parameters
@@ -96,7 +97,7 @@ def list_all_team_members(
     """
 
     id_to_member = {member.id: member for member in all_members}
-    all_team_members = dict()
+    all_team_members: dict[str, list[tuple[int, Member]]] = {}
     for team in all_teams:
         all_team_members[team.name] = []
         list_team_members = lambda parameters: CONFIG.client.list_team_members(
@@ -123,7 +124,7 @@ def list_team_sources(team: Team) -> list[Source]:
     return pagination_max_results(wrapper)
 
 
-def list_all_teams() -> tuple[list[Team], dict[str, list[Team]]]:
+def list_all_teams() -> tuple[list[Team], dict[str, Team]]:
     """
     Get syncable teams from GitGuardian and teams by external id
     """
@@ -135,16 +136,9 @@ def list_all_teams() -> tuple[list[Team], dict[str, list[Team]]]:
     sync_teams = []
     teams_by_external_id: dict[str, Team] = {}
     for team in all_teams:
-        if team.description is None:
-            continue
-        try:
-            metadata = json.loads(team.description)
-            external_id = metadata["id"]
-
+        if external_id := team_gitlab_id(team):
             teams_by_external_id[external_id] = team
             sync_teams.append(team)
-        except json.JSONDecodeError:
-            pass
 
     return sync_teams, teams_by_external_id
 
@@ -205,10 +199,15 @@ def remove_team_invitation(team: Team, invitation_id: int, email: str):
 
 def send_invitation(
     member_email: str, access_level: AccessLevel = AccessLevel.MEMBER
-) -> Invitation:
+) -> Invitation | None:
     """
     Send an invitation to join a workspace, the invitation is sent to member_email
     """
+
+    _, _, rhs = member_email.partition("@")
+    if CONFIG.invite_domains and rhs not in CONFIG.invite_domains:
+        logger.info("Email doesn't match invite domains: %s", member_email)
+        return None
 
     payload = CreateInvitation(member_email, access_level)
     parameters = CreateInvitationParameters(send_email=CONFIG.send_email)
@@ -232,7 +231,7 @@ def send_team_invitation(
     team: Team,
     is_team_leader: bool = False,
     incident_permission: IncidentPermission = CONFIG.default_incident_permission,
-) -> TeamInvitation:
+) -> TeamInvitation | None:
     """
     From an invitation, invite the member to the team
     """
@@ -244,7 +243,7 @@ def send_team_invitation(
             logger.debug(
                 f"User {invitation.email} is already invited to the team ({team.name})"
             )
-            return
+            return None
         raise RuntimeError(f"Unable to invite member to the team: {response.detail}")
 
     logger.info(
@@ -284,15 +283,14 @@ def add_member_to_team(
                 f"User {member.email} is already a member of the team ({team.name})"
             )
             return
-        else:
-            raise RuntimeError(f"Unable to add member to the team: {response.detail}")
+        raise RuntimeError(f"Unable to add member to the team: {response.detail}")
 
     logger.info(
         f"Successfully added member to the team {member.email}",
     )
 
 
-def list_sources_by_team_id(all_teams: Iterable[Team]) -> dict[id, list[Source]]:
+def list_sources_by_team_id(all_teams: Iterable[Team]) -> dict[int, list[Source]]:
     """
     Give a list of teams, return all their sources mapped by team id to a list of source
     """
@@ -316,7 +314,7 @@ def delete_team(team: Team):
 def delete_teams_by_name(
     all_teams: list[Team],
     team_names_to_delete: set[str],
-    sources_by_team_id: dict[id, list[Source]],
+    sources_by_team_id: dict[int, list[Source]],
 ):
     """
     Given every team available in GitGuardian, remove teams that are in the set of
@@ -370,7 +368,7 @@ def update_team_source(
         raise RuntimeError(f"Unable to update team source: {response.detail}")
 
     logger.info(
-        f"Successfully updated sources for {team.name}",
+        f"Successfully updated sources for team {team.name}",
     )
 
 
