@@ -88,7 +88,7 @@ def list_group_members(
 
     for user in gitlab_users:
         for group in user["groups"]:
-            group_members[group["fullName"]].add(user["email"])
+            group_members[team_name_from_group_dict(group)].add(user["email"])
 
     return group_members
 
@@ -315,18 +315,21 @@ def create_team_from_group(group: GitlabGroup) -> Team:
     """
     Given a Gitlab group, create the corresponding GitGuardian team
     """
+
+    team_name = team_name_from_group(group)
+
     payload = CreateTeam(
-        group["fullName"],
+        team_name,
         description=team_description_from_group(group),
     )
     response = CONFIG.client.create_team(payload)
 
     if isinstance(response, Detail):
         raise RuntimeError(
-            f"Unable to create team {group['fullName']}: {response.detail}"
+            f"Unable to create team {team_name}: {response.detail}"
         )
 
-    logger.info(f"Successfully created team {group['fullName']}")
+    logger.info(f"Successfully created team {team_name}")
     return response
 
 
@@ -335,21 +338,35 @@ def rename_team_from_group(team: Team, group: GitlabGroup) -> Team:
     Given a GitGuardian team and a Gitlab group, rename the GitGuardian team to
     match the Gitlab group full path
     """
+
+    team_name = team_name_from_group(group)
+
     payload = UpdateTeam(
         team.id,
-        name=group["fullName"],
+        name=team_name,
         description=team_description_from_group(group),
     )
     response = CONFIG.client.update_team(payload)
 
     if isinstance(response, Detail):
         raise RuntimeError(
-            f"Unable to rename team {group['fullName']}: {response.detail}"
+            f"Unable to rename team {team.name}: {response.detail}"
         )
 
-    logger.info(f"Successfully renamed team from {team.name} to {group['fullName']}")
+    logger.info(f"Successfully renamed team from {team.name} to {team_name}")
     return response
 
+def team_name_from_group(group: GitlabGroup) -> str:
+    """
+    Given a Gitlab group, return the corresponding GitGuardian team name
+    """
+    return group["fullPath"]
+
+def team_name_from_group_dict(group: dict[str, str]) -> str:
+    """
+    Given a Gitlab group, return the corresponding GitGuardian team name
+    """
+    return group["fullPath"]
 
 def synchronize_teams(
     teams_by_external_id: dict[str, Team],
@@ -384,7 +401,7 @@ def synchronize_teams(
         gg_team = teams_by_external_id[team]
         group = groups_by_id[team]
 
-        if gg_team.name != group["fullName"]:
+        if gg_team.name != team_name_from_group(group):
             teams_by_external_id[group["id"]] = rename_team_from_group(gg_team, group)
 
     return list(teams_by_external_id.values())
