@@ -350,7 +350,7 @@ def rename_team_from_group(team: Team, group: GitlabGroup) -> Team:
 
     if isinstance(response, Detail):
         raise RuntimeError(
-            f"Unable to rename team {team.name}: {response.detail}"
+            f"Unable to rename team {team.name} to {team_name}: {response.detail}"
         )
 
     logger.info(f"Successfully renamed team from {team.name} to {team_name}")
