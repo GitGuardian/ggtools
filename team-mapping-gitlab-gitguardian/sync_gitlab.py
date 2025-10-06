@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Iterable
+from typing import Iterable, Literal
 
 from pygitguardian.models import (
     CreateTeam,
@@ -88,7 +88,7 @@ def list_group_members(
 
     for user in gitlab_users:
         for group in user["groups"]:
-            group_members[team_name_from_group_dict(group)].add(user["email"])
+            group_members[get_team_name_from_gitlab_group(group)].add(user["email"])
 
     return group_members
 
@@ -316,7 +316,7 @@ def create_team_from_group(group: GitlabGroup) -> Team:
     Given a Gitlab group, create the corresponding GitGuardian team
     """
 
-    team_name = team_name_from_group(group)
+    team_name = get_team_name_from_gitlab_group(group)
 
     payload = CreateTeam(
         team_name,
@@ -339,7 +339,7 @@ def rename_team_from_group(team: Team, group: GitlabGroup) -> Team:
     match the Gitlab group full path
     """
 
-    team_name = team_name_from_group(group)
+    team_name = get_team_name_from_gitlab_group(group)
 
     payload = UpdateTeam(
         team.id,
@@ -356,17 +356,11 @@ def rename_team_from_group(team: Team, group: GitlabGroup) -> Team:
     logger.info(f"Successfully renamed team from {team.name} to {team_name}")
     return response
 
-def team_name_from_group(group: GitlabGroup) -> str:
+def get_team_name_from_gitlab_group(group_or_dict: GitlabGroup | dict[Literal["fullPath"],str]) -> str:
     """
     Given a Gitlab group, return the corresponding GitGuardian team name
     """
-    return group["fullPath"]
-
-def team_name_from_group_dict(group: dict[str, str]) -> str:
-    """
-    Given a Gitlab group, return the corresponding GitGuardian team name
-    """
-    return group["fullPath"]
+    return group_or_dict["fullPath"]
 
 def synchronize_teams(
     teams_by_external_id: dict[str, Team],
@@ -401,7 +395,7 @@ def synchronize_teams(
         gg_team = teams_by_external_id[team]
         group = groups_by_id[team]
 
-        if gg_team.name != team_name_from_group(group):
+        if gg_team.name != get_team_name_from_gitlab_group(group):
             teams_by_external_id[group["id"]] = rename_team_from_group(gg_team, group)
 
     return list(teams_by_external_id.values())
