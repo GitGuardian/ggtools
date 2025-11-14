@@ -57,18 +57,82 @@ def list_all_gg_members() -> Generator[Member]:
     """Fetch all members existing on the workspace by iterating over the pagination."""
     first_call = True
     cursor = ''
+    iteration = 0
+    max_iterations = 1000  # Safety limit to prevent infinite loops
+    previous_next_url = None
 
     while first_call or cursor:
+        iteration += 1
+        if iteration > max_iterations:
+            raise RuntimeError(f"Infinite loop detected: exceeded {max_iterations} iterations. Last cursor: {cursor}")
+        
         first_call = False
 
+        print(f"\n[DEBUG] Iteration #{iteration}")
+        print(f"[DEBUG] Current cursor: '{cursor}'")
+        
         parameters = MembersParameters(cursor=cursor, per_page=100)
         response = CONFIG.gg_client.list_members(parameters)
 
         if isinstance(response, Detail):
             raise RuntimeError(f"Error while listing members: {response.detail}")
 
-        cursor = _extract_cursor(response.next) if response.next else ''
+        print(f"[DEBUG] Response type: {type(response)}")
+        print(f"[DEBUG] Response.next value: {response.next}")
+        print(f"[DEBUG] Response.next type: {type(response.next)}")
+        data_length = len(response.data) if hasattr(response, 'data') else 0
+        print(f"[DEBUG] Response.data length: {data_length}")
+        
+        # Check if we've reached the end (no more data)
+        if not hasattr(response, 'data') or data_length == 0:
+            print(f"[DEBUG] No more data returned, ending pagination")
+            break
+        
+        # Extract cursor from response.next before checking
+        old_cursor = cursor
+        new_cursor = ''
+        if response.next:
+            print(f"[DEBUG] response.next is truthy, extracting cursor...")
+            new_cursor = _extract_cursor(response.next)
+        else:
+            print(f"[DEBUG] response.next is falsy/None, no more pages")
+        
+        print(f"[DEBUG] Old cursor: '{old_cursor}'")
+        print(f"[DEBUG] New cursor: '{new_cursor}'")
+        print(f"[DEBUG] Cursor changed: {old_cursor != new_cursor}")
+        
+        # Yield the data first (before breaking)
         yield from response.data
+        
+        # Check multiple conditions to detect end of pagination:
+        # 1. No next URL means we're done
+        if not response.next:
+            print(f"[DEBUG] No next URL, pagination complete")
+            break
+        
+        # 2. If cursor didn't change and it's not empty, we've reached the end
+        # (API is returning same cursor, indicating no more pages)
+        if new_cursor == old_cursor and new_cursor != '' and iteration > 1:
+            print(f"[INFO] Cursor did not change (same as previous: '{new_cursor}').")
+            print(f"[INFO] This indicates we've reached the end of pagination.")
+            print(f"[INFO] Breaking loop - pagination complete.")
+            break
+        
+        # 3. If response.next URL is the same as previous, we're stuck/at end
+        if response.next == previous_next_url and previous_next_url is not None:
+            print(f"[INFO] response.next URL did not change (same as previous).")
+            print(f"[INFO] This indicates we've reached the end of pagination.")
+            print(f"[INFO] Breaking loop - pagination complete.")
+            break
+        
+        # 4. If we got fewer items than requested, likely the last page
+        if data_length < 100:  # per_page is 100
+            print(f"[DEBUG] Received {data_length} items (less than per_page=100), likely last page")
+            # Still continue if there's a next URL, but log it
+        
+        # Update for next iteration
+        cursor = new_cursor
+        previous_next_url = response.next
 
 
 def list_all_gg_teams() -> Generator[Team]:
@@ -291,9 +355,29 @@ def update_team_sources(
 
 
 def _extract_cursor(url: str) -> str:
+    """Extract cursor from pagination URL."""
+    print(f"[DEBUG _extract_cursor] Input URL: {url}")
+    print(f"[DEBUG _extract_cursor] URL type: {type(url)}")
+    
     parsed_url = urlparse(url)
+    print(f"[DEBUG _extract_cursor] Parsed URL scheme: {parsed_url.scheme}")
+    print(f"[DEBUG _extract_cursor] Parsed URL netloc: {parsed_url.netloc}")
+    print(f"[DEBUG _extract_cursor] Parsed URL path: {parsed_url.path}")
+    print(f"[DEBUG _extract_cursor] Parsed URL query: {parsed_url.query}")
+    
     if parsed_url.query:
         parsed_query = parse_qs(parsed_url.query)
+        print(f"[DEBUG _extract_cursor] Parsed query dict: {parsed_query}")
+        print(f"[DEBUG _extract_cursor] Keys in parsed_query: {list(parsed_query.keys())}")
+        
         if "cursor" in parsed_query and parsed_query["cursor"]:
-            return parsed_query["cursor"][0]
+            cursor_value = parsed_query["cursor"][0]
+            print(f"[DEBUG _extract_cursor] Found cursor: '{cursor_value}'")
+            return cursor_value
+        else:
+            print(f"[DEBUG _extract_cursor] No 'cursor' key found in query parameters")
+    else:
+        print(f"[DEBUG _extract_cursor] No query string in URL")
+    
+    print(f"[DEBUG _extract_cursor] Returning empty string")
     return ""
