@@ -139,6 +139,9 @@ OPTIONS:
     -n NAMESPACE
         Specify the Kubernetes destination namespace
 
+    -r RELEASE_NAME
+        Specify the Helm release name
+
     --version
         Specify the version of the Helm chart to use (default to latest)
 
@@ -187,6 +190,7 @@ REMOTE_CRONJOB_NAME="gitguardian-remote-preflights"
 CHART=""
 CHART_VERSION=""
 DEVEL=""
+HELM_RELEASE_NAME=""
 NAMESPACE=""
 LOCAL_CHECKS="yes"
 REMOTE_CHECKS="yes"
@@ -218,6 +222,11 @@ while (("$#")); do
   -n)
     shift
     NAMESPACE="--namespace $1"
+    shift
+    ;;
+  -r)
+    shift
+    HELM_RELEASE_NAME="$1"
     shift
     ;;
   --version)
@@ -342,7 +351,7 @@ if [ -n "$PULL_SECRETS_OPTION" ] && [[ "$FORCE" == "yes" ]];
 then
   echo -e "--- TEMPLATING PULL SECRETS"
   echo -e "Please wait ..."
-  if ! run_hide_output "helm template $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PULL_SECRETS_OPTION $CHART > $script_dir/local_secrets.yaml" "stderr";
+  if ! run_hide_output "helm template $HELM_RELEASE_NAME $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PULL_SECRETS_OPTION $CHART > $script_dir/local_secrets.yaml" "stderr";
   then
     LOCAL_CHECKS_STATUS="error"
     exit_error "Unable to template pull secrets"
@@ -370,7 +379,7 @@ then
   then
     echo -e "--- TEMPLATING LOCAL TESTS"
     echo -e "Please wait ..."
-    if ! run_hide_output "helm template $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml" "stderr";
+    if ! run_hide_output "helm template $HELM_RELEASE_NAME $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml" "stderr";
     then
       rm -f $script_dir/local_preflights.yaml
       LOCAL_CHECKS_STATUS="error"
@@ -415,7 +424,7 @@ then
   if ! run_hide_output "kubectl get cronjob $REMOTE_CRONJOB_NAME $NAMESPACE" "all" || [[ "$FORCE" == "yes" ]] ; then
     echo -e "--- TEMPLATING REMOTE TESTS"
     echo -e "Please wait ..."
-    if ! run_hide_output "helm template $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml" "stderr";
+    if ! run_hide_output "helm template $HELM_RELEASE_NAME $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml" "stderr";
     then
       REMOTE_CHECKS_STATUS="error"
       exit_error "Unable to template remote preflights"
