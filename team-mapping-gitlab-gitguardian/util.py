@@ -5,6 +5,8 @@ from typing import Iterable, TypedDict
 from email_validator import EmailNotValidError, validate_email
 from pygitguardian.models import Team
 
+from config import CONFIG
+
 logger = logging.getLogger(__name__)
 
 GitlabUserGroup = TypedDict(
@@ -12,7 +14,7 @@ GitlabUserGroup = TypedDict(
     {
         "name": str,
         "email": str | None,
-        "groups": list[dict[str, str]],
+        "groupMemberships": list[dict[str, str]],
     },
 )
 GitlabUser = TypedDict(
@@ -65,14 +67,19 @@ def transform_gitlab_user(gitlab_user: dict) -> GitlabUserGroup:
     Transform the GraphQL representation of a User to a simpler dictionary
     """
 
-    groups = gitlab_user.get("groups", {}).get("nodes", [])
-    for group in groups:
-        group["fullPath"] = " / ".join(group["fullPath"].split("/"))
+    groups = []
+    memberships = gitlab_user.get("groupMemberships", {}).get("nodes", [])
+
+    for membership in memberships:
+        if membership["accessLevel"]["integerValue"] >= CONFIG.gitlab_level:
+            group = membership["group"]
+            group["fullPath"] = " / ".join(group["fullPath"].split("/"))
+            groups.append(group)
 
     return {
         "name": gitlab_user["name"],
         "email": get_valid_email(e["email"] for e in gitlab_user["emails"]["nodes"]),
-        "groups": groups,
+        "groupMemberships": groups,
     }
 
 

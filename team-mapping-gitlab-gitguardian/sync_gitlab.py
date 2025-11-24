@@ -55,7 +55,7 @@ def map_gitlab_groups(
     selectors = {"id": gitlab_group_by_id}
 
     for user in gitlab_users:
-        for group in user["groups"]:
+        for group in user["groupMemberships"]:
             for selector, res in selectors.items():
                 if group[selector] not in res:
                     res[group[selector]] = {
@@ -64,6 +64,7 @@ def map_gitlab_groups(
                         "fullPath": group["fullPath"],
                         "users": [],
                     }
+
 
                 group_users = res[group[selector]]["users"]
                 group_users.append(
@@ -87,7 +88,7 @@ def list_group_members(
     group_members = defaultdict(set)
 
     for user in gitlab_users:
-        for group in user["groups"]:
+        for group in user["groupMemberships"]:
             group_members[get_team_name_from_gitlab_group(group)].add(user["email"])
 
     return group_members

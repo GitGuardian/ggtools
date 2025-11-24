@@ -21,6 +21,7 @@ class Config:
     gitlab_url: str
 
     send_email: bool
+    gitlab_level: int = 30  # 30 = DEVELOPER
     invite_domains: set[str] | None = None
     default_incident_permission: IncidentPermission = IncidentPermission.EDIT
     logger_level: int = logging.INFO
@@ -36,6 +37,10 @@ class Config:
         logger_level = cls.logger_level
         if logger_level_name := os.environ.get("LOG_LEVEL"):
             logger_level = getattr(logging, logger_level_name.upper())
+
+        gitlab_level = cls.gitlab_level
+        if gitlab_level_env := os.environ.get("GITLAB_LEVEL"):
+            gitlab_level = int(gitlab_level_env)
 
         invite_domains = {
             domain.strip()
@@ -54,6 +59,7 @@ class Config:
             invite_domains=invite_domains,
             default_incident_permission=incident_permission,
             logger_level=logger_level,
+            gitlab_level=gitlab_level,
         )
 
     @cached_property
@@ -73,7 +79,8 @@ class Config:
             f"send_email={self.send_email}, "
             f"invite_domains={self.invite_domains}, "
             f"gitlab_url={self.gitlab_url}, "
-            f"gitlab_token={self.gitlab_token}, "
+            f"gitlab_token={self.gitlab_token}, ",
+            f"gitlab_level={str(self.gitlab_level)}, ",
             f"logger_level={logging._levelToName[self.logger_level]}, "
             f"remove_members={self.remove_members}, "
             f"gitguardian_url={self.gitguardian_url}, "
