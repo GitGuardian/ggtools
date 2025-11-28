@@ -2,7 +2,8 @@
 
 This folder provides ready-to-use Helm configurations to deploy PostgreSQL and Redis in your Kubernetes cluster for use with the GitGuardian application.
 
-⚠️ **WARNING: These configurations are intended for Proof of Concept (PoC) and testing purposes only. For production deployments, we strongly recommend using managed database services from your cloud provider (see recommendations below).**
+> [!CAUTION]  
+> ⚠️ **WARNING: These configurations are intended for Proof of Concept (PoC) and testing purposes only. For production deployments, we strongly recommend using managed database services from your cloud provider (see > recommendations below).**
 
 - PostgreSQL topologies:
   - **HA (replication)**: primary with read replica(s); recommended for production for resilience and read scaling.
@@ -21,7 +22,8 @@ If you deploy GitGuardian on a public cloud, prefer the provider's managed servi
 
 These Helm values are intended for existing-cluster installations or environments where managed services are not available. Managed services typically offer higher availability, automated backups/maintenance, and operational SLAs.
 
-⚠️ Deploying PostgreSQL/Redis using these Bitnami Helm examples on Red Hat OpenShift is not supported.
+> [!CAUTION]  
+> ⚠️ Deploying PostgreSQL/Redis using these Bitnami Helm examples on Red Hat OpenShift is not supported.
 
 Presets are mapped as follows:
 
