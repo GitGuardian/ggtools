@@ -146,14 +146,14 @@ def notes_migration(old_secret_id, new_secret_id):
 
         while n < len(old_notes):
             old_member_path = pathlib.Path(__file__).parent.joinpath(
-                ".cache", "new_members", f"{old_notes[n]['member_id']}.json",
+                ".cache", "old_members", f"{old_notes[n]['member_id']}.json",
             )
             if old_member_path.exists():
                 member = json.loads(old_member_path.read_text())
             else:
                 member_endpoint = old_base_api_url + "/v1/members/"f"{old_notes[n]['member_id']}"
                 member_response = backoff(requests.get)(member_endpoint, headers={"Authorization": f"Token {old_token_instance}"})
-                assert response.status_code == 200
+                assert member_response.status_code == 200
                 member = member_response.json()
                 old_member_path.parent.mkdir(parents=True, exist_ok=True)
                 old_member_path.write_text(json.dumps(member))
