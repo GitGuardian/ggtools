@@ -208,7 +208,7 @@ def resolution_note(reason, old_id, date, new_id, member_id):
 # method to retrieve member email
 def check_member(member_id):
     old_member_path = pathlib.Path(__file__).parent.joinpath(
-        ".cache", "new_members", f"{member_id}.json",
+        ".cache", "old_members", f"{member_id}.json",
     )
     if old_member_path.exists():
         member = json.loads(old_member_path.read_text())
@@ -308,7 +308,7 @@ def check_count(id_old, id_new):
     new_notes = []
 
     old_notes_path = pathlib.Path(__file__).parent.joinpath(
-        ".cache", "new_members", f"{id_old}.json",
+        ".cache", "old_notes", f"{id_old}.json",
     )
     if old_notes_path.exists():
         old_notes = json.loads(old_notes_path.read_text())
@@ -324,7 +324,7 @@ def check_count(id_old, id_new):
         old_notes_path.write_text(json.dumps(old_notes))
 
     new_notes_path = pathlib.Path(__file__).parent.joinpath(
-        ".cache", "new_members", f"{id_old}.json",
+        ".cache", "new_notes", f"{id_old}.json",
     )
     if new_notes_path.exists():
         new_notes = json.loads(new_notes_path.read_text())
