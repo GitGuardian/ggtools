@@ -145,18 +145,7 @@ def notes_migration(old_secret_id, new_secret_id):
             print("Notes for incident", old_secret_id, "have been migrated before, skipping...")
 
         while n < len(old_notes):
-            old_member_path = pathlib.Path(__file__).parent.joinpath(
-                ".cache", "old_members", f"{old_notes[n]['member_id']}.json",
-            )
-            if old_member_path.exists():
-                member = json.loads(old_member_path.read_text())
-            else:
-                member_endpoint = old_base_api_url + "/v1/members/"f"{old_notes[n]['member_id']}"
-                member_response = backoff(requests.get)(member_endpoint, headers={"Authorization": f"Token {old_token_instance}"})
-                assert member_response.status_code == 200
-                member = member_response.json()
-                old_member_path.parent.mkdir(parents=True, exist_ok=True)
-                old_member_path.write_text(json.dumps(member))
+            member = load_old_member(old_notes[n]['member_id'])
             member_email = member['email']
             print("posting note #", n+1, "...")
             note = f"{member_email}" " left a note on " f"{old_notes[n]['created_at']}" " with the following comment : " f"{old_notes[n]['comment']}"
@@ -192,21 +181,25 @@ def resolution_note(reason, old_id, date, new_id, member_id):
     email = check_member(member_id)
     if reason is True:
         res_note_post = res_note + "resolved and revoked on " f"{date} by {email}"
-    if reason is False:
+    elif reason is False:
         res_note_post = res_note + "resolved but not revoked on " f"{date} by {email}"
-    if reason == "low_risk":
+    elif reason == "low_risk":
         res_note_post = res_note + "ignored low_risk on " f"{date} by {email}"
-    if reason == "false_positive":
+    elif reason == "false_positive":
         res_note_post = res_note + "ignored false_positive on " f"{date} by {email}"
-    if reason == "test_credential":
+    elif reason == "test_credential":
         res_note_post = res_note + "ignored test_credential on " f"{date} by {email}"
+    else:
+        res_note_post = res_note + f"ignored {reason} on {date} by {email}"
     print(res_note_post)
     # post the resolution note using post_note method
     post_note(res_note_post, new_id)
 
 
-# method to retrieve member email
-def check_member(member_id):
+# method that loads an old member from API or cache
+def load_old_member(member_id):
+    if member_id is None:
+        return {"email": "unknown@unknown.invalid"}
     old_member_path = pathlib.Path(__file__).parent.joinpath(
         ".cache", "old_members", f"{member_id}.json",
     )
@@ -217,8 +210,16 @@ def check_member(member_id):
         member_response = backoff(requests.get)(member_endpoint, headers={"Authorization": f"Token {old_token_instance}"})
         assert response.status_code == 200
         member = member_response.json()
+        if "not found" in member.get("detail", "").lower():
+            raise ValueError(f"{member_id} {member}")
         old_member_path.parent.mkdir(parents=True, exist_ok=True)
         old_member_path.write_text(json.dumps(member))
+    return member
+
+
+# method to retrieve member email
+def check_member(member_id):
+    member = load_old_member(member_id)
     member_email = member['email']
     return member_email
 
@@ -383,7 +384,7 @@ for i in all_old_incidents:
                 if counter < 2:
                     Value = True
 
-            if i['status'] == 'IGNORED' and j['status'] != 'IGNORED':
+            if i['status'] == 'IGNORED' and j['status'] not in ('RESOLVED', 'IGNORED'):
                 ignore_payload = {'ignore_reason': i['ignore_reason']}
                 body = json.dumps(ignore_payload)
                 update_ignore = new_base_api_url + "/v1/incidents/secrets/"f"{j['id']}/ignore"
@@ -396,7 +397,11 @@ for i in all_old_incidents:
                 print("ignore_reason: "f"{i['ignore_reason']}")
                 print("id: "f"{i['id']}")
                 print("ignore_date: "f"{i['ignored_at']}")
-                resolution_note(i['ignore_reason'], i['id'], i['ignored_at'], j['id'], i['ignorer_id'])
+                try:
+                    resolution_note(i['ignore_reason'], i['id'], i['ignored_at'], j['id'], i['ignorer_id'])
+                except:
+                    print("old:", i)
+                    raise
                 Value = True
                 j['status'] = i['status']
                 j['ignore_reason'] = i['ignore_reason']
@@ -419,11 +424,20 @@ for i in all_old_incidents:
                 response = backoff(requests.post)(update_resolve, body, headers={"Authorization": f"Token {new_token_instance}", 'Content-Type': 'application/json; charset=UTF-8'})
                 response_json = response.json()
                 print(f"resolved : {response.status_code}: {response_json}")
-                assert response.status_code == 200
-                resolution_note(i['secret_revoked'], i['id'], i['resolved_at'], j['id'], i['resolver_id'])
-                Value = True
-                j['status'] = i['status']
-                j['secret_revoked'] = i['secret_revoked']
+                assert response.status_code in (200, 400, 409)
+                if response.status_code == 400:
+                    assert "still valid" in str(response_json)
+                elif response.status_code == 409:
+                    assert "already resolved" in str(response_json)
+                else:
+                    try:
+                        resolution_note(i['secret_revoked'], i['id'], i['resolved_at'], j['id'], i['resolver_id'])
+                    except:
+                        print("old:", i)
+                        raise
+                    Value = True
+                    j['status'] = i['status']
+                    j['secret_revoked'] = i['secret_revoked']
             if Value:
                 print('success')
                 success_note(i['id'], j['id'], i['gitguardian_url'], i['status'])
