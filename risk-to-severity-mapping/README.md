@@ -10,6 +10,8 @@ This application assumes the following:
 1. A working, non-eol `python3`, `pip`, and `venv` installation.
 1. A GitGuardian SaaS account in good standing - risk scores are not currently supported in On-Prem installs.
 
+Please note that only "Open" Incidents will be mapped. Incidents in the `Resolved` or `Ignored` state will be left as-is.
+
 ## 🛠️ Installation and Configuration
 
 1. Create a virtual python environment (Optional, Recommended):
@@ -61,14 +63,14 @@ This application assumes the following:
       export GITGUARDIAN_API_URL="https://api.gitguardian.com" # US Region
       # For EU region, use: https://api.eu1.gitguardian.com
 
-      # OPTIONAL: Test mode without making changes
-      export DRY_RUN="true"
-
-      # Test run without making changes (n.b: we set DRY_RUN inline here)
-      DRY_RUN=true python3 sync_risk_to_severity.py
-
-      # Live run
+      # Test run without making changes
       python3 sync_risk_to_severity.py
+      
+      # OPTIONAL: Set DRY_RUN to false to enable updating (report only by default)
+      export DRY_RUN="false"
+
+      # Live run (n.b: we set DRY_RUN inline here)
+      DRY_RUN=false python3 sync_risk_to_severity.py
       ```
 
 ## 👀 Example Output
