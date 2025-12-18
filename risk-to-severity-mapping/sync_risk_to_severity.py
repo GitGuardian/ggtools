@@ -18,7 +18,7 @@ load_dotenv()
 # Configuration
 API_KEY = os.environ.get("GITGUARDIAN_API_KEY")  # Set this environment variable
 API_BASE_URL = os.environ.get("GITGUARDIAN_API_URL", "https://api.gitguardian.com")
-DRY_RUN = os.environ.get("DRY_RUN", "true").lower() == "false"
+DRY_RUN = os.environ.get("DRY_RUN", "true").lower() == "true"
 
 # Risk Score to Severity Mapping
 # Adjust these thresholds based on your organization's needs
