@@ -2,6 +2,15 @@
 
 To learn more, read about the [GitGuardian risk score](https://docs.gitguardian.com/releases/saas/2025/12/17/2-changelog)
 
+## ⚠️ Important: Severity Rules Engine Compatibility
+
+By default, this script **only updates incidents with "unknown" severity**. This design preserves severities that may have been:
+
+- Set manually by users
+- Configured via the [Severity Rules Engine](https://docs.gitguardian.com/platform/monitor/incidents/incident-severity#defining-custom-severity-rules)
+
+If you want to override all severities (including those set by users or the Severity Rules Engine), use the `--force` flag.
+
 ## ‼️ Prerequisites and Assumptions
 
 This application assumes the following:
@@ -63,7 +72,7 @@ Please note that only "Open" Incidents will be mapped. Incidents in the `Resolve
       export GITGUARDIAN_API_URL="https://api.gitguardian.com" # US Region
       # For EU region, use: https://api.eu1.gitguardian.com
 
-      # Test run without making changes
+      # Test run without making changes (only updates "unknown" severities)
       python3 sync_risk_to_severity.py
       
       # OPTIONAL: Set DRY_RUN to false to enable updating (report only by default)
@@ -71,15 +80,21 @@ Please note that only "Open" Incidents will be mapped. Incidents in the `Resolve
 
       # Live run (n.b: we set DRY_RUN inline here)
       DRY_RUN=false python3 sync_risk_to_severity.py
+
+      # Force update ALL severities (overrides Severity Rules Engine and manual settings)
+      DRY_RUN=false python3 sync_risk_to_severity.py --force
       ```
 
 ## 👀 Example Output
 
 ```bash
-Incident 22404169: Risk Score=20 | Current=info → Target=low
-Incident 23139880: Risk Score=86 | Current=info → Target=critical
-
-No more pages - pagination complete
+Starting risk score to severity sync - 2025-12-18T10:30:00.000000
+Mode: DRY RUN
+Update mode: UNKNOWN severity only
+API Base URL: https://api.gitguardian.com
+--------------------------------------------------------------------------------
+Incident 22404169: Risk Score=20 | Current=unknown → Target=low
+Incident 23139880: Risk Score=86 | Current=unknown → Target=critical
 
 ================================================================================
 EXECUTION SUMMARY

@@ -10,6 +10,7 @@ Schedule this script to run daily via cron or your preferred scheduler.
 import os
 import requests
 import time
+import argparse
 from typing import Dict, List, Optional
 from datetime import datetime
 from dotenv import load_dotenv
@@ -19,6 +20,7 @@ load_dotenv()
 API_KEY = os.environ.get("GITGUARDIAN_API_KEY")  # Set this environment variable
 API_BASE_URL = os.environ.get("GITGUARDIAN_API_URL", "https://api.gitguardian.com")
 DRY_RUN = os.environ.get("DRY_RUN", "true").lower() == "true"
+FORCE_UPDATE = os.environ.get("FORCE_UPDATE", "false").lower() == "true"
 
 # Risk Score to Severity Mapping
 # Adjust these thresholds based on your organization's needs
@@ -119,12 +121,17 @@ def update_incident_severity(incident_id: int, severity: str) -> bool:
         print(f"Error updating incident {incident_id}: {e}")
         return False
 
-def should_update_severity(incident: Dict) -> bool:
+def should_update_severity(incident: Dict, force_update: bool = False) -> bool:
     """
     Determine if an incident's severity should be updated.
 
+    By default, only incidents with "unknown" severity are updated. This preserves
+    severities that may have been set by users or the Severity Rules Engine.
+    Use force_update=True to update all incidents regardless of current severity.
+
     Args:
         incident: The incident dictionary from API
+        force_update: If True, update all incidents; if False, only update "unknown" severity
 
     Returns:
         True if severity should be updated
@@ -139,12 +146,19 @@ def should_update_severity(incident: Dict) -> bool:
     # Calculate what the severity should be based on risk score
     target_severity = get_severity_from_risk_score(risk_score)
 
+    # If not forcing updates, only update incidents with "unknown" severity
+    if not force_update:
+        return current_severity == "unknown"
+
     # Only update if current severity differs from target
     return current_severity != target_severity
 
-def process_incidents() -> Dict[str, int]:
+def process_incidents(force_update: bool = False) -> Dict[str, int]:
     """
     Main function to process all open incidents.
+
+    Args:
+        force_update: If True, update all incidents; if False, only update "unknown" severity
 
     Returns:
         Statistics dictionary with counts
@@ -158,15 +172,13 @@ def process_incidents() -> Dict[str, int]:
 
     print(f"Starting risk score to severity sync - {datetime.now().isoformat()}")
     print(f"Mode: {'DRY RUN' if DRY_RUN else 'LIVE'}")
+    print(f"Update mode: {'ALL severities' if force_update else 'UNKNOWN severity only'}")
     print(f"API Base URL: {API_BASE_URL}")
     print("-" * 80)
 
     next_url = None
-    page_num = 1
 
     while True:
-        print(f"\nFetching page {page_num}...")
-
         try:
             data, next_url = fetch_open_incidents(next_url)
         except requests.exceptions.RequestException as e:
@@ -177,7 +189,6 @@ def process_incidents() -> Dict[str, int]:
         incidents = data if isinstance(data, list) else data.get("results", [])
 
         if not incidents:
-            print("No more incidents to process")
             break
 
         for incident in incidents:
@@ -187,7 +198,7 @@ def process_incidents() -> Dict[str, int]:
 
             stats["total_processed"] += 1
 
-            if not should_update_severity(incident):
+            if not should_update_severity(incident, force_update):
                 stats["skipped"] += 1
                 continue
 
@@ -210,10 +221,7 @@ def process_incidents() -> Dict[str, int]:
 
         # Check if there's a next page
         if next_url is None:
-            print("\nNo more pages - pagination complete")
             break
-
-        page_num += 1
 
     return stats
 
@@ -228,10 +236,28 @@ def print_summary(stats: Dict[str, int]):
     print(f"Errors:                    {stats['errors']}")
     print("=" * 80)
 
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Sync GitGuardian risk scores to severity levels"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        default=FORCE_UPDATE,
+        help="Force update all severities, not just 'unknown'. "
+             "By default, only incidents with 'unknown' severity are updated "
+             "to preserve severities set via the Severity Rules Engine or manually."
+    )
+    return parser.parse_args()
+
+
 def main():
     """Main entry point."""
+    args = parse_args()
+
     try:
-        stats = process_incidents()
+        stats = process_incidents(force_update=args.force)
         print_summary(stats)
 
         # Exit with error code if there were errors
