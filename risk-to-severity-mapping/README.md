@@ -7,7 +7,7 @@ To learn more, read about the [GitGuardian risk score](https://docs.gitguardian.
 By default, this script **only updates incidents with "unknown" severity**. This design preserves severities that may have been:
 
 - Set manually by users
-- Configured via the [Severity Rules Engine](https://docs.gitguardian.com/platform/monitor/incidents/incident-severity#defining-custom-severity-rules)
+- Configured via the [Severity Rules Engine](https://docs.gitguardian.com/internal-monitoring/remediate/prioritize-incidents#severity)
 
 If you want to override all severities (including those set by users or the Severity Rules Engine), use the `--force` flag.
 
