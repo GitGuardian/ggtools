@@ -25,11 +25,11 @@ FORCE_UPDATE = os.environ.get("FORCE_UPDATE", "false").lower() == "true"
 # Risk Score to Severity Mapping
 # Adjust these thresholds based on your organization's needs
 SEVERITY_MAPPING = {
-    "critical": 80,  # Risk score >= 80
-    "high": 60,  # Risk score >= 60 and < 80
+    "critical": 85,  # Risk score >= 85
+    "high": 60,  # Risk score >= 60 and < 85
     "medium": 40,  # Risk score >= 40 and < 60
-    "low": 20,  # Risk score >= 20 and < 40
-    "info": 0,  # Risk score < 20
+    "low": 26,  # Risk score >= 26 and < 40
+    "info": 0,  # Risk score 0-25
 }
 
 def get_severity_from_risk_score(risk_score: Optional[int]) -> str:
