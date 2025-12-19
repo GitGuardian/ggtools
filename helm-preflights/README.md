@@ -27,7 +27,7 @@ Below is a table detailing the tests conducted by this tool:
 The Kubernetes namespace should be the one that will be used for Gitguardian app.
 
 Additionally, the script requires the following:
-- [helm v3](https://helm.sh/docs/intro/install/) (version >= v3.13.3)
+- [helm](https://helm.sh/docs/intro/install/) (version >= v3.13.3)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) (version ≥ 1.27.0)
 - [jq](https://github.com/jqlang/jq)
 - [kubectl preflight plugin](https://troubleshoot.sh/docs/#installation) (version ≥ 0.84.0, possible to install through the script)
@@ -56,6 +56,7 @@ To view all available options, run `./preflights.sh --help`.
 ```bash
 ./preflights.sh \
 -n <namespace> \
+-r <release-name> \
 -f local-values.yaml \
 oci://registry.replicated.com/gitguardian/gitguardian
 ```
@@ -64,6 +65,7 @@ oci://registry.replicated.com/gitguardian/gitguardian
 ```bash
 ./preflights.sh \
 -n <namespace> \
+-r <release-name> \
 -f local-values.yaml \
 gitguardian-<version>.tgz
 ```

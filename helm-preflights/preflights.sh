@@ -139,6 +139,9 @@ OPTIONS:
     -n NAMESPACE
         Specify the Kubernetes destination namespace
 
+    -r RELEASE_NAME
+        Specify the Helm release name
+
     --version
         Specify the version of the Helm chart to use (default to latest)
 
@@ -181,12 +184,13 @@ REMOTE_PREFLIGHTS_TEMPLATE="-s templates/on-prem/helm_preflights_remote.yaml"
 LOCAL_PREFLIGHTS_TEMPLATE="-s templates/on-prem/helm_preflights_local.yaml"
 PULL_SECRETS_OPTION="-s templates/image-pull-secrets.yaml"
 PREFLIGHTS_TEMPLATING_OPTION="--dry-run=server --set onPrem.preflightsTemplating.enabled=true"
-REMOTE_CRONJOB_NAME="gitguardian-remote-preflights"
+REMOTE_OBJECT_NAME="gitguardian-remote-preflights"
 
 #inputs
 CHART=""
 CHART_VERSION=""
 DEVEL=""
+HELM_RELEASE_NAME=""
 NAMESPACE=""
 LOCAL_CHECKS="yes"
 REMOTE_CHECKS="yes"
@@ -218,6 +222,11 @@ while (("$#")); do
   -n)
     shift
     NAMESPACE="--namespace $1"
+    shift
+    ;;
+  -r)
+    shift
+    HELM_RELEASE_NAME="$1"
     shift
     ;;
   --version)
@@ -320,6 +329,13 @@ if [[ $(printf "%s\n%s\n" "$HELM_MINIMUM_VERSION" "$helm_current_version" | sort
   fi
 fi
 
+# check if helm v4 is being used
+if [[ $(printf "%s\n%s\n" "4.0.0" "$helm_current_version" | sort -V | head -n 1) == "4.0.0" ]]; then
+  run_hide_output "echo \"Helm v4.x detected (version $helm_current_version)\"" "all"
+  run_hide_output "kubectl delete $NAMESPACE secret $REMOTE_OBJECT_NAME" "all"
+  run_hide_output "kubectl delete $NAMESPACE cronjob $REMOTE_OBJECT_NAME" "all"
+fi
+
 # If specified chart is not considered as a stable chart, enable Helm --devel flag
 if ! contains_string_in_array "$CHART" "${STABLE_CHARTS[@]}"; then
   DEVEL="--devel"
@@ -342,7 +358,7 @@ if [ -n "$PULL_SECRETS_OPTION" ] && [[ "$FORCE" == "yes" ]];
 then
   echo -e "--- TEMPLATING PULL SECRETS"
   echo -e "Please wait ..."
-  if ! run_hide_output "helm template $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PULL_SECRETS_OPTION $CHART > $script_dir/local_secrets.yaml" "stderr";
+  if ! run_hide_output "helm template $HELM_RELEASE_NAME $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PULL_SECRETS_OPTION $CHART > $script_dir/local_secrets.yaml" "stderr";
   then
     LOCAL_CHECKS_STATUS="error"
     exit_error "Unable to template pull secrets"
@@ -370,7 +386,7 @@ then
   then
     echo -e "--- TEMPLATING LOCAL TESTS"
     echo -e "Please wait ..."
-    if ! run_hide_output "helm template $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml" "stderr";
+    if ! run_hide_output "helm template $HELM_RELEASE_NAME $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml" "stderr";
     then
       rm -f $script_dir/local_preflights.yaml
       LOCAL_CHECKS_STATUS="error"
@@ -412,15 +428,15 @@ then
       install_jq
     fi
   fi
-  if ! run_hide_output "kubectl get cronjob $REMOTE_CRONJOB_NAME $NAMESPACE" "all" || [[ "$FORCE" == "yes" ]] ; then
+  if ! run_hide_output "kubectl get cronjob $REMOTE_OBJECT_NAME $NAMESPACE" "all" || [[ "$FORCE" == "yes" ]] ; then
     echo -e "--- TEMPLATING REMOTE TESTS"
     echo -e "Please wait ..."
-    if ! run_hide_output "helm template $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml" "stderr";
+    if ! run_hide_output "helm template $HELM_RELEASE_NAME $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml" "stderr";
     then
       REMOTE_CHECKS_STATUS="error"
       exit_error "Unable to template remote preflights"
     else
-      run_hide_output "kubectl delete $NAMESPACE cronjob $REMOTE_CRONJOB_NAME" "all"
+      run_hide_output "kubectl delete $NAMESPACE cronjob $REMOTE_OBJECT_NAME" "all"
       if ! run_hide_output "kubectl apply $NAMESPACE -f $script_dir/remote_preflights.yaml" "all";
       then
         REMOTE_CHECKS_STATUS="error"
@@ -435,7 +451,7 @@ then
   echo -e "If this step is too long, please check the pod is running in the accurate namespace"
   echo -e "Please wait ..."
   #Start job
-  run_hide_output "kubectl create job $NAMESPACE --from=cronjob/$REMOTE_CRONJOB_NAME $REMOTE_CRONJOB_NAME-`mktemp -u XXXXXX | tr '[:upper:]' '[:lower:]'` --dry-run=client -o json | jq 'del(.metadata.ownerReferences)' | kubectl apply -f -" "all"
+  run_hide_output "kubectl create job $NAMESPACE --from=cronjob/$REMOTE_OBJECT_NAME $REMOTE_OBJECT_NAME-`mktemp -u XXXXXX | tr '[:upper:]' '[:lower:]'` --dry-run=client -o json | jq 'del(.metadata.ownerReferences)' | kubectl apply -f -" "all"
   sleep 5
   pod=$(kubectl get pods $NAMESPACE -l gitguardian=remote-preflight --sort-by=.metadata.creationTimestamp -o 'jsonpath={.items[-1].metadata.name}')
 

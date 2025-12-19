@@ -1,0 +1,17 @@
+# WARNING: This configuration is intended for Proof of Concept (PoC) and testing purposes only.
+# For production deployments, use managed database services from your cloud provider.
+# See README.md for recommendations.
+
+architecture: standalone
+
+master:
+  persistence:
+    enabled: true
+    size: 100Gi
+  resources:
+    requests:
+      cpu: "8000m"
+      memory: "16Gi"
+    limits:
+      cpu: "8000m"
+      memory: "16Gi"
