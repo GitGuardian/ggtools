@@ -219,7 +219,7 @@ echo_ok
 
 echo_step "Deleting postgreSQL Statefulset"
 kubectl $KUBECTL_ARGS \
-  delete statefulset "$(kubectl get statefulset --selector="$postgres_pod_selector" -o jsonpath='{.items[0].metadata.name}')" 2>$ERROR_LOG_FILE
+  delete statefulset "$(kubectl $KUBECTL_ARGS get statefulset --selector="$postgres_pod_selector" -o jsonpath='{.items[0].metadata.name}')" 2>$ERROR_LOG_FILE
 if [[ -s "$ERROR_LOG_FILE" ]]; then
   exit 1
 fi
