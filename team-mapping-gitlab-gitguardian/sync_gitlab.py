@@ -124,8 +124,7 @@ def synchronize_team_members(
             team_members = gg_team_member_by_team_name[group_name]
             team_member_emails = {
                 member.email
-                for members in gg_team_member_by_team_name.values()
-                for _, member in members
+                for _, member in team_members
             }
 
             members_to_add = group_members - team_member_emails
