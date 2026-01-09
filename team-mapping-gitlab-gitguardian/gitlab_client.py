@@ -10,27 +10,34 @@ from util import (
 
 GITLAB_USER_GRAPHQL_QUERY = """
 query ($cursor: String) {
-    users(first: 100, after: $cursor, humans: true) {
-        pageInfo {
-            endCursor
-        }
-        nodes {
-            name
-            emails {
-                nodes {
-                    email
-                }
-            }
-            groups {
-                nodes {
-                    id
-                    name
-                    fullName
-                    fullPath
-                }
-            }
-        }
+  users(first: 100, after: $cursor, humans: true) {
+    pageInfo {
+      endCursor
+      hasNextPage
     }
+    nodes {
+      name
+      emails {
+        nodes {
+          email
+        }
+      }
+      groupMemberships {
+        nodes {
+          accessLevel {
+            integerValue
+            stringValue
+          }
+          group {
+            id
+            name
+            fullName
+            fullPath
+          }
+        }
+      }
+    }
+  }
 }
 """
 
