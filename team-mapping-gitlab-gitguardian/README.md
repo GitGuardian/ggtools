@@ -43,6 +43,7 @@ Optional environment variables:
   - `can_edit` : For read and write permissions
   - `full_access` : For manager permissions
 - `INVITE_DOMAINS`: A comma-separated list of domains to match when inviting users to the platform.
+- `GITLAB_LEVEL`: The minimum access level required for a user to be considered part of a group. Defaults to `30` (Developer access). Possible values are described in the [Gitlab documentation](https://docs.gitlab.com/api/access_requests/#approve-an-access-request).
 
 In order to ensure you have the correct configuration, you can run the following command to display the configuration:
 
