@@ -177,11 +177,7 @@ OPTIONS:
 USAGE
 }
 
-function cleanup_pull_secrets() {
-  run_hide_output "kubectl $NAMESPACE delete secret gim-replicated-registry --ignore-not-found" "all"
-}
-
-trap "write_results; cleanup_pull_secrets" EXIT
+trap "write_results" EXIT
 
 #conf
 REMOTE_PREFLIGHTS_TEMPLATE="-s templates/on-prem/helm_preflights_remote.yaml"
@@ -390,7 +386,7 @@ then
   then
     echo -e "--- TEMPLATING LOCAL TESTS"
     echo -e "Please wait ..."
-    if ! run_hide_output "helm template $HELM_RELEASE_NAME $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml" "stderr";
+    if ! run_hide_output "helm template --take-ownership $HELM_RELEASE_NAME $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $LOCAL_PREFLIGHTS_TEMPLATE $CHART > $script_dir/local_preflights.yaml" "stderr";
     then
       rm -f $script_dir/local_preflights.yaml
       LOCAL_CHECKS_STATUS="error"
@@ -435,7 +431,7 @@ then
   if ! run_hide_output "kubectl get cronjob $REMOTE_OBJECT_NAME $NAMESPACE" "all" || [[ "$FORCE" == "yes" ]] ; then
     echo -e "--- TEMPLATING REMOTE TESTS"
     echo -e "Please wait ..."
-    if ! run_hide_output "helm template $HELM_RELEASE_NAME $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml" "stderr";
+    if ! run_hide_output "helm template --take-ownership $HELM_RELEASE_NAME $DEVEL $NAMESPACE $VALUES_FILES $CHART_VERSION $PREFLIGHTS_TEMPLATING_OPTION $REMOTE_PREFLIGHTS_TEMPLATE $CHART > $script_dir/remote_preflights.yaml" "stderr";
     then
       REMOTE_CHECKS_STATUS="error"
       exit_error "Unable to template remote preflights"
