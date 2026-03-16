@@ -177,7 +177,11 @@ OPTIONS:
 USAGE
 }
 
-trap "write_results" EXIT
+function cleanup_pull_secrets() {
+  run_hide_output "kubectl $NAMESPACE delete secret gim-replicated-registry --ignore-not-found" "all"
+}
+
+trap "write_results; cleanup_pull_secrets" EXIT
 
 #conf
 REMOTE_PREFLIGHTS_TEMPLATE="-s templates/on-prem/helm_preflights_remote.yaml"
