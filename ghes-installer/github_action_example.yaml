@@ -1,0 +1,18 @@
+name: Install GitGuardian across the enterprise
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install requests PyJWT cryptography
+      - run: python3 gg_enterprise_installer.py --all-orgs
+        env:
+          GH_INSTALLER_CLIENT_ID: ${{ vars.GH_INSTALLER_CLIENT_ID }}
+          GH_INSTALLER_PRIVATE_KEY: ${{ secrets.GH_INSTALLER_PRIVATE_KEY }}
+          GH_ENTERPRISE_SLUG: ${{ vars.GH_ENTERPRISE_SLUG }}
+          GG_APP_CLIENT_ID: ${{ vars.GG_APP_CLIENT_ID }}
