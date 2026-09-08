@@ -64,68 +64,7 @@ This step tells GitGuardian to trust your installer app. It runs once, from any 
 
 The script checks the URL and the API token against the API health endpoint before it mints or sends the signed token, so a typo cannot send anything to the wrong place. It exits with `already registered` when run again.
 
-### The registration script
-
-```python
-#!/usr/bin/env python3
-# One-time: trust your installer app on GitGuardian.
-# pip install requests PyJWT cryptography
-import os, sys, time
-from urllib.parse import urlparse
-
-import jwt, requests
-
-def app_jwt():
-    key = os.environ.get("GH_INSTALLER_PRIVATE_KEY") or open(
-        os.environ["GH_INSTALLER_PRIVATE_KEY_PATH"]
-    ).read()
-    now = int(time.time())
-    return jwt.encode(
-        {"iat": now - 60, "exp": now + 540, "iss": os.environ["GH_INSTALLER_CLIENT_ID"]},
-        key, algorithm="RS256",
-    )
-
-def gitguardian_api_url():
-    """Refuse anything that could send the API key or the signed token to the wrong place."""
-    url = os.environ["GITGUARDIAN_API_URL"].strip().rstrip("/")
-    parts = urlparse(url)
-    if parts.scheme != "https":
-        sys.exit(f"GITGUARDIAN_API_URL must start with https:// (got {url!r})")
-    if not parts.netloc or parts.username or parts.query or parts.fragment:
-        sys.exit(f"GITGUARDIAN_API_URL must be a plain base URL (got {url!r})")
-    if parts.path not in ("", "/exposed"):
-        sys.exit(
-            "GITGUARDIAN_API_URL must be https://api.gitguardian.com, "
-            "https://api.eu1.gitguardian.com, or https://<your-dashboard-host>/exposed "
-            f"(got {url!r})"
-        )
-    return url
-
-def main():
-    url = gitguardian_api_url()
-    headers = {"Authorization": f"Token {os.environ['GITGUARDIAN_API_KEY']}"}
-
-    # Validate the URL and the API token before the signed token exists.
-    health = requests.get(f"{url}/v1/health", headers=headers, timeout=30)
-    if health.status_code != 200:
-        sys.exit(
-            "GitGuardian did not accept the URL or the API token: "
-            f"{health.status_code} {health.text[:200]}"
-        )
-
-    r = requests.post(
-        f"{url}/v1/github/installer-app-rules",
-        headers=headers, json={"app_jwt": app_jwt()}, timeout=30,
-    )
-    if r.status_code == 409:
-        print("Installer app already registered, nothing to do")
-        return
-    r.raise_for_status()
-    rule = r.json()
-    print(f"Registered installer app {rule['installer_app_slug']} (bot id {rule['installer_bot_id']})")
-
-main()
-```
+The registration script is located here: [gg_register_installer.py](./gg_register_installer.py)
 
 ## Step 4. Install GitGuardian on your organizations (scheduled)
 
@@ -137,28 +76,7 @@ Run the loop as a scheduled workflow in a private repository of one of your orga
 
 1. Commit `gg_enterprise_installer.py` (below) to the repository.
 2. In the repository settings, add the secret `GH_INSTALLER_PRIVATE_KEY` with the content of the `.pem` file, and the variables `GH_INSTALLER_CLIENT_ID`, `GH_ENTERPRISE_SLUG`, and `GG_APP_CLIENT_ID` (the GitGuardian app's client ID, provided by GitGuardian).
-3. Add this workflow:
-
-```yaml
-name: Install GitGuardian across the enterprise
-on:
-  schedule:
-    - cron: "0 7 * * *"
-  workflow_dispatch:
-
-jobs:
-  install:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: pip install requests PyJWT cryptography
-      - run: python3 gg_enterprise_installer.py --all-orgs
-        env:
-          GH_INSTALLER_CLIENT_ID: ${{ vars.GH_INSTALLER_CLIENT_ID }}
-          GH_INSTALLER_PRIVATE_KEY: ${{ secrets.GH_INSTALLER_PRIVATE_KEY }}
-          GH_ENTERPRISE_SLUG: ${{ vars.GH_ENTERPRISE_SLUG }}
-          GG_APP_CLIENT_ID: ${{ vars.GG_APP_CLIENT_ID }}
-```
+3. Add this workflow: [github_action_example.yaml](./github_action_example.yaml)
 
 ### Alternative: your own scheduler
 
@@ -183,86 +101,9 @@ python3 gg_enterprise_installer.py org-one org-two
 
 The script is idempotent: organizations that already have the app are skipped. It exits with a non-zero status when at least one installation failed, so a scheduled run shows up as failed.
 
-### The install script
-
-```python
-#!/usr/bin/env python3
-# Scheduled: install the GitGuardian app on every organization of the enterprise.
-# pip install requests PyJWT cryptography
-import os, sys, time
-
-import jwt, requests
-
-API = "https://api.github.com"
-
-def app_jwt():
-    key = os.environ.get("GH_INSTALLER_PRIVATE_KEY") or open(
-        os.environ["GH_INSTALLER_PRIVATE_KEY_PATH"]
-    ).read()
-    now = int(time.time())
-    return jwt.encode(
-        {"iat": now - 60, "exp": now + 540, "iss": os.environ["GH_INSTALLER_CLIENT_ID"]},
-        key, algorithm="RS256",
-    )
-
-def gh(token):
-    return {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
-
-def get_all(url, token):
-    """Follow GitHub's pagination: list endpoints return at most 100 items per page."""
-    items = []
-    url = f"{url}{'&' if '?' in url else '?'}per_page=100"
-    while url:
-        r = requests.get(url, headers=gh(token), timeout=30)
-        r.raise_for_status()
-        items.extend(r.json())
-        url = r.links.get("next", {}).get("url")
-    return items
-
-def enterprise_token():
-    token = app_jwt()
-    installs = get_all(f"{API}/app/installations", token)
-    ent = next((i for i in installs if i["target_type"] == "Enterprise"), None)
-    if ent is None:
-        sys.exit("Installer app is not installed on the enterprise (see step 2).")
-    r = requests.post(f"{API}/app/installations/{ent['id']}/access_tokens",
-                      headers=gh(token), timeout=30)
-    r.raise_for_status()
-    return r.json()["token"]
-
-def main():
-    ent = os.environ["GH_ENTERPRISE_SLUG"]
-    gg_app = os.environ["GG_APP_CLIENT_ID"]
-    orgs = [a for a in sys.argv[1:] if a != "--all-orgs"]
-    token = os.environ.get("GH_INSTALLATION_TOKEN") or enterprise_token()
-    if not orgs:
-        orgs = [o["login"] for o in get_all(
-            f"{API}/enterprises/{ent}/apps/installable_organizations", token)]
-
-    failed = 0
-    for org in orgs:
-        installed = get_all(
-            f"{API}/enterprises/{ent}/apps/organizations/{org}/installations", token)
-        if any(i.get("client_id") == gg_app for i in installed):
-            print(org, "already installed, skipping")
-            continue
-        r = requests.post(
-            f"{API}/enterprises/{ent}/apps/organizations/{org}/installations",
-            headers=gh(token),
-            json={"client_id": gg_app, "repository_selection": "all"},
-            timeout=30,
-        )
-        if r.ok:
-            print(org, "installed")
-        else:
-            failed += 1
-            print(org, f"FAILED {r.status_code} {r.text[:100]}")
-    sys.exit(1 if failed else 0)
-
-main()
-```
-
 Each installation appears in your GitGuardian workspace within seconds, already linked, with all repositories of the organization syncing (`repository_selection: all`).
+
+The installation script is located here: [gg_enterprise_installer.py](./gg_enterprise_installer.py)
 
 ## Verifying
 
