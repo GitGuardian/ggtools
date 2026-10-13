@@ -1,6 +1,19 @@
 # Installing GitGuardian across your GitHub Enterprise
 
-This guide explains how to install the GitGuardian GitHub App on **all organizations of your GitHub Enterprise automatically**, using GitHub's enterprise installation API and two small scripts: a one-time registration, and an install loop that runs on a schedule. Once set up, no one needs to click through the GitGuardian dashboard for each organization, and organizations you create in the future are covered by the next scheduled run.
+This guide explains how to install the GitGuardian GitHub App on **all organizations of your GitHub Enterprise automatically**, on GitHub Enterprise Cloud or GitHub Enterprise Server 3.19 and later, using GitHub's enterprise installation API and two small scripts: a one-time registration, and an install loop that runs on a schedule. Once set up, no one needs to click through the GitGuardian dashboard for each organization, and organizations you create in the future are covered by the next scheduled run.
+
+## Supported GitHub platforms
+
+| Platform | What works | `GITHUB_API_URL` |
+| --- | --- | --- |
+| GitHub Enterprise Cloud (github.com) | Everything in this guide | `https://api.github.com` (the default, can be left unset) |
+| GitHub Enterprise Cloud with data residency (GHE.com) | Everything in this guide | `https://api.<subdomain>.ghe.com` |
+| GitHub Enterprise Server 3.19 or later | Everything in this guide | `https://<ghes-host>/api/v3` |
+| GitHub Enterprise Server 3.18 or older | Audit and install links only: see *GitHub Enterprise Server 3.18 and older* below | `https://<ghes-host>/api/v3` |
+
+GitHub added the enterprise installation API, and the *Enterprise organization installations* permission it relies on, in GHES 3.19. Older GHES versions have no API that installs an app on an organization, so the installs themselves cannot be automated there. The scripts detect the GHES version and stop with an explanation on versions that are too old.
+
+On GitHub Enterprise Server, the GitGuardian app is the one created on your instance from the GitGuardian dashboard (Settings → Integrations → Sources → GitHub Enterprise Server), not the public GitGuardian app. Wherever this guide asks for the GitGuardian app's client ID or slug, use that app's values: they are on its settings page on your instance.
 
 ## How it works
 
@@ -14,7 +27,7 @@ The registration is authenticated with a short-lived token signed by your instal
 
 | You need | Details |
 | --- | --- |
-| GitHub Enterprise Cloud | An enterprise account on [github.com](http://github.com) with your organizations under it |
+| GitHub Enterprise Cloud or Server | An enterprise account on [github.com](http://github.com) or GHE.com, or a GitHub Enterprise Server 3.19+ instance, with your organizations under it (see *Supported GitHub platforms*) |
 | GitHub enterprise owner | Required once, to create and install the installer app |
 | GitGuardian workspace manager | Required once, to create the API token used for registration |
 | Python 3.10+ | To run the scripts (`pip install requests PyJWT cryptography`). For the scheduled install loop, a GitHub Actions workflow is recommended (step 4) |
@@ -29,14 +42,16 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Keep the scripts and `gh_api.py` (shared GitHub helpers they all import) in the same folder.
+
 ## Step 1. Create your installer app (once)
 
 As an enterprise owner, in your browser:
 
-1. Go to `https://github.com/enterprises/<your-slug>/settings/apps` and click **New GitHub App**.
+1. Go to `https://github.com/enterprises/<your-slug>/settings/apps` (on GHES: `https://<ghes-host>/enterprises/<your-slug>/settings/apps`) and click **New GitHub App**.
 2. Give it any name (for example `gitguardian-installer`) and any homepage URL.
 3. Under **Webhook**, uncheck **Active**. The installer app does not need webhooks.
-4. Under **Permissions**, open the **Enterprise permissions** section and set **Enterprise organization installations** to **Read and write**. Leave every other permission on *No access*.
+4. Under **Permissions**, open the **Enterprise permissions** section and set **Enterprise organization installations** to **Read and write**. Leave every other permission on *No access*. (On GHES 3.18 and older this section does not exist: see *GitHub Enterprise Server 3.18 and older*.)
 5. Click **Create GitHub App**.
 6. On the app's page, note the **Client ID**, then click **Generate a private key**. A `.pem` file downloads.
 
@@ -49,7 +64,7 @@ Still on the app's settings page, open **Install App** in the left sidebar and i
 
 ## Step 3. Register the installer app on GitGuardian (once)
 
-This step tells GitGuardian to trust your installer app. It runs once, from any machine that can read the `.pem` file, and is the only step that talks to GitGuardian.
+This step tells GitGuardian to trust your installer app. It runs once, from any machine that can read the `.pem` file and reach your GitHub, and is the only step that talks to GitGuardian.
 
 1. In your GitGuardian workspace, as a manager, create an API token (personal or service account) with the **`sources:write`** scope: Settings → API → Personal access tokens / Service accounts. Give it a short expiration: it is needed for this step only.
 2. Set the variables below and run `python3 gg_register_installer.py`.
@@ -61,8 +76,11 @@ This step tells GitGuardian to trust your installer app. It runs once, from any 
 | `GH_INSTALLER_PRIVATE_KEY_PATH` | Path to the downloaded `.pem` file (or put the key content itself in `GH_INSTALLER_PRIVATE_KEY`) |
 | `GITGUARDIAN_API_URL` | The GitGuardian API base URL, the same value you would give ggshield: `https://api.gitguardian.com` (SaaS, US), `https://api.eu1.gitguardian.com` (SaaS, EU), or `https://<your-dashboard-host>/exposed` (self-hosted). It must use `https://` |
 | `GITGUARDIAN_API_KEY` | The API token from item 1 |
+| `GITHUB_API_URL` | Your GitHub API base URL (see *Supported GitHub platforms*). Leave unset for github.com |
 
-The script checks the URL and the API token against the API health endpoint before it mints or sends the signed token, so a typo cannot send anything to the wrong place. It exits with `already registered` when run again.
+Before contacting GitGuardian, the script runs against your own GitHub the same checks GitGuardian will run: it detects the GHES version, verifies that your GitHub accepts the signed token, and confirms the installer app is installed on the enterprise (step 2). Run `python3 gg_register_installer.py --check-only` to run these checks alone, without the two `GITGUARDIAN_*` variables.
+
+It then checks the GitGuardian URL and the API token against the API health endpoint before it mints or sends the signed token, so a typo cannot send anything to the wrong place. It exits with `already registered` when run again.
 
 The registration script is located here: [gg_register_installer.py](./gg_register_installer.py)
 
@@ -74,9 +92,11 @@ The install loop lists the organizations of your enterprise and installs the Git
 
 Run the loop as a scheduled workflow in a private repository of one of your organizations. The private key then lives in GitHub's encrypted Actions secrets: no long-lived key on a self-managed cron host, no extra infrastructure to secure, and every run is logged in the workflow history.
 
-1. Commit `gg_enterprise_installer.py` (below) to the repository.
-2. In the repository settings, add the secret `GH_INSTALLER_PRIVATE_KEY` with the content of the `.pem` file, and the variables `GH_INSTALLER_CLIENT_ID`, `GH_ENTERPRISE_SLUG`, and `GG_APP_CLIENT_ID` (the GitGuardian app's client ID, provided by GitGuardian).
+1. Commit `gg_enterprise_installer.py`, `gh_api.py`, and `requirements.txt` to the repository.
+2. In the repository settings, add the secret `GH_INSTALLER_PRIVATE_KEY` with the content of the `.pem` file, and the variables `GH_INSTALLER_CLIENT_ID`, `GH_ENTERPRISE_SLUG`, and `GG_APP_CLIENT_ID` (the GitGuardian app's client ID: provided by GitGuardian on Cloud, or the client ID of the GitGuardian app created on your GHES instance).
 3. Add this workflow: [github_action_example.yaml](./github_action_example.yaml)
+
+GitHub Actions sets `GITHUB_API_URL` to the instance the workflow runs on, so the same workflow works on Cloud and on GHES. On GHES, change `runs-on` to one of your self-hosted runners: GitHub-hosted runners are not available there.
 
 ### Alternative: your own scheduler
 
@@ -86,8 +106,9 @@ If you cannot use GitHub Actions, run the same script from your scheduler with t
 | --- | --- |
 | `GH_INSTALLER_CLIENT_ID` | Your installer app's Client ID (step 1) |
 | `GH_INSTALLER_PRIVATE_KEY_PATH` | Path to the `.pem` file (or the key content in `GH_INSTALLER_PRIVATE_KEY`). Prefer fetching it from a secrets manager at runtime |
-| `GH_ENTERPRISE_SLUG` | Your enterprise slug (as in `github.com/enterprises/<slug>`) |
-| `GG_APP_CLIENT_ID` | The GitGuardian app's client ID (provided by GitGuardian) |
+| `GITHUB_API_URL` | Your GitHub API base URL (see *Supported GitHub platforms*). Leave unset for github.com |
+| `GH_ENTERPRISE_SLUG` | Your enterprise slug (as in `github.com/enterprises/<slug>` or `<ghes-host>/enterprises/<slug>`) |
+| `GG_APP_CLIENT_ID` | The GitGuardian app's client ID (provided by GitGuardian on Cloud; on GHES, the client ID of the GitGuardian app created on your instance) |
 | `GH_INSTALLATION_TOKEN` (optional) | A 1-hour installation token of your installer app minted by a secured component. When set, the loop does not need the key at all and the two `GH_INSTALLER_*` variables can be omitted |
 
 ```bash
@@ -104,6 +125,37 @@ The script is idempotent: organizations that already have the app are skipped. I
 Each installation appears in your GitGuardian workspace within seconds, already linked, with all repositories of the organization syncing (`repository_selection: all`).
 
 The installation script is located here: [gg_enterprise_installer.py](./gg_enterprise_installer.py)
+
+## GitHub Enterprise Server 3.18 and older
+
+These versions have no API that installs a GitHub App on an organization, and no *Enterprise permissions* section for the installer app, so steps 1 to 4 do not apply. Each installation has to be approved in the browser by an owner of the organization. `gg_install_audit.py` takes care of the rest: it lists every organization, finds the ones missing the GitGuardian app, and writes a report with a direct install link for each and the owners to send it to. It only reads from GitHub and installs nothing.
+
+1. Make sure the GitGuardian app created on your instance can be installed by **Any account** (on its settings page, **Advanced** → **Make public** if it is still private), so organizations other than the one owning the app can install it. On GHES this means any account on your instance, not the public internet.
+2. Create a personal access token (classic) for an enterprise owner or site administrator, with the scopes `read:org` and `admin:read:org` (add `read:enterprise` if you set `GH_ENTERPRISE_SLUG`).
+3. Set the variables below and run the audit:
+
+| Variable | Value |
+| --- | --- |
+| `GITHUB_API_URL` | `https://<ghes-host>/api/v3` |
+| `GH_TOKEN` | The token from item 2 |
+| `GG_APP_SLUG` | The slug of the GitGuardian app on your instance, as in `https://<ghes-host>/github-apps/<slug>` |
+| `GH_ENTERPRISE_SLUG` (optional) | When set, only the organizations of this enterprise are audited. Otherwise every organization of the instance is |
+
+```bash
+# every organization
+python3 gg_install_audit.py
+# specific organizations
+python3 gg_install_audit.py org-one org-two
+```
+
+The script writes `gg_install_audit.csv` and `gg_install_audit.md` (change the paths with `--csv` and `--md`, and add `--include-installed` to list every organization). Each organization gets one of these statuses:
+
+- **missing**: the app is not installed. Send the install link to one of the listed owners.
+- **unknown**: the token cannot read the organization's installations, usually because its user is not an owner of that organization. The install link is included in case the app is missing.
+
+Run the audit again after the owners have installed the app, or on a schedule, to catch new organizations. The script also works on GHES 3.19+ and on Cloud, for example to review coverage before running the install loop.
+
+The audit script is located here: [gg_install_audit.py](./gg_install_audit.py)
 
 ## Verifying
 
@@ -145,4 +197,10 @@ GitGuardian keeps only public identifiers from these responses: the app ID, the 
 | `Installer app is not installed on the enterprise` | Step 2 was skipped, or the app was installed on an organization instead of the enterprise |
 | Install call returns **404** | The installer app lacks the *Enterprise organization installations: write* permission, or `GG_APP_CLIENT_ID` is empty or wrong |
 | Organization reported as `already installed, skipping` | Nothing to do: the app is already on that organization |
+| `GitHub Enterprise Server 3.x does not have the enterprise organization-installations API` | Your GHES version is older than 3.19. Upgrade GHES, or use `gg_install_audit.py` (see *GitHub Enterprise Server 3.18 and older*) |
+| `GITHUB_API_URL must be a plain https:// base URL` | Use `https://<ghes-host>/api/v3` for GHES, with no trailing path or query |
+| `rejected the signed token` during the GitHub check | Wrong Client ID or private key, or `GITHUB_API_URL` points to a different GitHub than the one hosting the installer app |
+| Registration returns **403** on GHES after the GitHub check passed | Confirm the API token has `sources:write` and manager rights, then contact GitGuardian support to confirm installer app registration is enabled for GitHub Enterprise Server on your workspace |
+| Audit reports `GitHub App ... not found` | `GG_APP_SLUG` must be the slug of the GitGuardian app on your instance, as in `/github-apps/<slug>` |
+| Many organizations are `unknown` in the audit | The token's user is not an owner of those organizations. Use a token of a user who owns them, or treat the install link as needed |
 | Installation appears on GitHub but not in GitGuardian | Step 3 was never completed for this installer app. Run the registration script, then reinstall the organization |

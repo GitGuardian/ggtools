@@ -34,4 +34,4 @@ lib64
 __pycache__/
 .venv/
 
-_backup/
+_backup*/

@@ -6,10 +6,16 @@ on:
 
 jobs:
   install:
+    # GitHub Enterprise Cloud: ubuntu-latest.
+    # GitHub Enterprise Server: GitHub-hosted runners are not available, so use one of
+    # your self-hosted runners (for example `runs-on: self-hosted`) with Python 3.10+.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: pip install requests PyJWT cryptography
+      - run: pip install -r requirements.txt
+      # GitHub Actions sets GITHUB_API_URL to the instance the workflow runs on
+      # (https://api.github.com on Cloud, https://<ghes-host>/api/v3 on GHES),
+      # so the script targets the right GitHub without extra configuration.
       - run: python3 gg_enterprise_installer.py --all-orgs
         env:
           GH_INSTALLER_CLIENT_ID: ${{ vars.GH_INSTALLER_CLIENT_ID }}
