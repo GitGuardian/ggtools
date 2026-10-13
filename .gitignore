@@ -33,3 +33,5 @@ lib64
 # Python
 __pycache__/
 .venv/
+
+_backup/
